@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PropertyPanel } from "@/components/customers/property-panel";
 import { DirectDebitInviteModal } from "@/components/payments/direct-debit-invite-modal";
+import { SendPaymentLinkModal } from "@/components/payments/send-payment-link-modal";
 import { JobStatusBadge } from "@/components/planner/job-status-badge";
 import { formatCurrency, formatDate, initials } from "@/lib/utils";
 import { Mail, Phone } from "lucide-react";
@@ -69,6 +70,7 @@ export default async function CustomerDetailPage({
                 Mandate: {customer.mandateStatus}
               </Badge>
             )}
+            <SendPaymentLinkModal customerId={customer.id} />
             <DirectDebitInviteModal customerId={customer.id} />
           </div>
         </CardContent>
