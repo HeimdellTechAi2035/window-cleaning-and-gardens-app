@@ -3,6 +3,7 @@
 import { Moon, Sun, Monitor } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useTheme } from "@/components/theme-provider";
+import { InstallPwaButton } from "@/components/pwa/install-button";
 import { cn } from "@/lib/utils";
 
 export function Topbar({
@@ -21,6 +22,8 @@ export function Topbar({
       <h1 className="text-lg font-semibold">{title}</h1>
 
       <div className="flex items-center gap-3">
+        <InstallPwaButton />
+
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>
             <button className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-accent">
