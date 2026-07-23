@@ -1,5 +1,6 @@
 import NextAuth from "next-auth";
 import type { JWT } from "next-auth/jwt";
+import type { Provider } from "next-auth/providers";
 import Credentials from "next-auth/providers/credentials";
 import Resend from "next-auth/providers/resend";
 import { PrismaAdapter } from "@auth/prisma-adapter";
@@ -12,15 +13,24 @@ interface AppJWT extends JWT {
   role: "ADMIN" | "OPERATIVE";
 }
 
+// Same rule as the Google provider in auth.config.ts: an empty apiKey
+// throws a Configuration error on every auth request, so only enable
+// magic-link email sign-in once RESEND_API_KEY is actually set.
+const fullProviders: Provider[] = [...authConfig.providers];
+if (process.env.RESEND_API_KEY) {
+  fullProviders.push(
+    Resend({
+      apiKey: process.env.RESEND_API_KEY,
+      from: process.env.RESEND_FROM_EMAIL ?? "onboarding@resend.dev",
+    })
+  );
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
   adapter: PrismaAdapter(prisma),
   providers: [
-    ...authConfig.providers,
-    Resend({
-      apiKey: process.env.RESEND_API_KEY,
-      from: process.env.RESEND_FROM_EMAIL ?? "onboarding@resend.dev",
-    }),
+    ...fullProviders,
     Credentials({
       credentials: {
         email: { label: "Email", type: "email" },

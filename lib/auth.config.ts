@@ -1,4 +1,5 @@
 import type { NextAuthConfig } from "next-auth";
+import type { Provider } from "next-auth/providers";
 import Google from "next-auth/providers/google";
 
 declare module "next-auth" {
@@ -19,6 +20,20 @@ declare module "next-auth" {
   }
 }
 
+// A provider with an empty clientId/clientSecret makes NextAuth v5 throw a
+// generic "Server error" Configuration error on every auth request, not
+// just sign-ins through that provider — so only register it when both
+// credentials are actually present.
+const baseProviders: Provider[] = [];
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  baseProviders.push(
+    Google({
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    })
+  );
+}
+
 /**
  * Edge-safe base config: no Prisma adapter, no bcrypt/Credentials — those
  * pull in Node-only APIs that can't run in the Edge Runtime middleware
@@ -33,10 +48,5 @@ export const authConfig: NextAuthConfig = {
   pages: {
     signIn: "/login",
   },
-  providers: [
-    Google({
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    }),
-  ],
+  providers: baseProviders,
 };
