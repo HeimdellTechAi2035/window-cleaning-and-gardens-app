@@ -1,0 +1,399 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  // Pooled connection (PgBouncer) — used at runtime by Netlify Functions.
+  url       = env("DATABASE_URL")
+  // Direct, unpooled connection — used only for migrations.
+  directUrl = env("DATABASE_URL_UNPOOLED")
+}
+
+// ------------------------------------------------------------------
+// Enums
+// ------------------------------------------------------------------
+
+enum Role {
+  ADMIN
+  OPERATIVE
+}
+
+enum PaymentMethod {
+  DIRECT_DEBIT
+  CARD
+  CASH
+  BANK_TRANSFER
+}
+
+enum JobStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  SKIPPED
+  RESCHEDULED
+}
+
+enum PaymentStatus {
+  UNPAID
+  PENDING_DIRECT_DEBIT
+  PAID
+  FAILED
+}
+
+enum PaymentGateway {
+  GOCARDLESS
+  STRIPE
+  MANUAL_CASH
+}
+
+enum SkipReason {
+  WEATHER
+  CUSTOMER_HOLIDAY
+  ACCESS_LOCKED
+  NON_PAYMENT
+  OTHER
+}
+
+enum NotificationChannel {
+  SMS
+  EMAIL
+  WHATSAPP
+}
+
+enum NotificationType {
+  PRE_ARRIVAL
+  JOB_COMPLETED
+  INVOICE
+  PAYMENT_RECEIPT
+  PAYMENT_FAILED
+  MANDATE_INVITE
+}
+
+// ------------------------------------------------------------------
+// Multi-tenant / Auth
+// ------------------------------------------------------------------
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  timezone  String   @default("Europe/London")
+  logoUrl   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Integration credentials (encrypted at rest by app layer)
+  gocardlessAccessToken String?
+  gocardlessEnv         String  @default("sandbox")
+  stripeAccountId       String?
+  mapboxToken           String?
+  twilioFromNumber      String?
+  resendFromEmail       String?
+
+  users     User[]
+  customers Customer[]
+  rounds    Round[]
+  jobs      Job[]
+
+  @@map("organizations")
+}
+
+model User {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  passwordHash  String?
+  role          Role      @default(OPERATIVE)
+  phone         String?
+  isActive      Boolean   @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  accounts Account[]
+  sessions Session[]
+
+  assignedJobs Job[] @relation("AssignedWorker")
+  completedBy  Job[] @relation("CompletedByWorker")
+
+  @@index([organizationId])
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ------------------------------------------------------------------
+// Customers & Properties
+// ------------------------------------------------------------------
+
+model Customer {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  firstName String
+  lastName  String
+  email     String?
+  phone     String?
+  altPhone  String?
+
+  billingAddressLine1 String?
+  billingAddressLine2 String?
+  billingCity         String?
+  billingPostcode     String?
+
+  preferredPaymentMethod PaymentMethod @default(CASH)
+
+  gocardlessCustomerId String?
+  gocardlessMandateId  String?
+  mandateStatus        String? // pending_submission, submitted, active, failed, cancelled
+  stripeCustomerId     String?
+  stripeDefaultPaymentMethodId String?
+
+  portalToken String @unique @default(cuid())
+
+  notes     String?  @db.Text
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  properties   Property[]
+  transactions Transaction[]
+  notifications Notification[]
+
+  @@index([organizationId])
+  @@map("customers")
+}
+
+model Property {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  addressLine1 String
+  addressLine2 String?
+  city         String
+  postcode     String
+  latitude     Float?
+  longitude    Float?
+
+  accessNotes String? @db.Text
+  hazards     PropertyHazard[]
+
+  propertyPhotoUrl String?
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  services Service[]
+  jobs     Job[]
+
+  @@index([customerId])
+  @@map("properties")
+}
+
+enum HazardSeverity {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model PropertyHazard {
+  id         String         @id @default(cuid())
+  propertyId String
+  property   Property       @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  label      String // e.g. "Aggressive Dog", "Fragile Glass", "Key Code Required"
+  severity   HazardSeverity @default(MEDIUM)
+  createdAt  DateTime       @default(now())
+
+  @@index([propertyId])
+  @@map("property_hazards")
+}
+
+// ------------------------------------------------------------------
+// Services, Rounds, Jobs
+// ------------------------------------------------------------------
+
+model Service {
+  id         String   @id @default(cuid())
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  title               String // "Standard Window Clean", "Lawn Mowing & Edging"
+  description         String? @db.Text
+  price               Decimal @db.Decimal(10, 2)
+  defaultIntervalWeeks Int    @default(4) // 0 = one-off
+  isActive            Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  jobs Job[]
+
+  @@index([propertyId])
+  @@map("services")
+}
+
+model Round {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name        String
+  description String?
+  colorCode   String  @default("#6366f1")
+  dayOfWeek   Int? // 0-6, informational default day
+  isActive    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  jobs Job[]
+
+  @@index([organizationId])
+  @@map("rounds")
+}
+
+model Job {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  roundId    String
+  round      Round    @relation(fields: [roundId], references: [id])
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id])
+  serviceId  String
+  service    Service  @relation(fields: [serviceId], references: [id])
+
+  assignedWorkerId String?
+  assignedWorker   User?   @relation("AssignedWorker", fields: [assignedWorkerId], references: [id])
+
+  status          JobStatus @default(SCHEDULED)
+  scheduledDate   DateTime
+  sequenceOrder   Int       @default(0) // manual drag-and-drop order within the day/round
+  intervalWeeksAtCreation Int @default(4) // snapshot of the interval used to schedule this job
+
+  startedAt   DateTime?
+  completedAt DateTime?
+  completedByWorkerId String?
+  completedByWorker   User? @relation("CompletedByWorker", fields: [completedByWorkerId], references: [id])
+
+  priceCharged Decimal @db.Decimal(10, 2)
+
+  skipReason   SkipReason?
+  skipNote     String?
+  carriedForward Boolean @default(false)
+
+  beforePhotoUrl String?
+  afterPhotoUrl  String?
+  workerNotes    String? @db.Text
+
+  isPaid        Boolean       @default(false)
+  paymentStatus PaymentStatus @default(UNPAID)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  transactions  Transaction[]
+  notifications Notification[]
+
+  @@index([organizationId, scheduledDate])
+  @@index([roundId])
+  @@index([propertyId])
+  @@map("jobs")
+}
+
+// ------------------------------------------------------------------
+// Payments
+// ------------------------------------------------------------------
+
+model Transaction {
+  id         String   @id @default(cuid())
+  jobId      String?
+  job        Job?     @relation(fields: [jobId], references: [id])
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+
+  amount               Decimal        @db.Decimal(10, 2)
+  currency             String         @default("GBP")
+  paymentGateway       PaymentGateway
+  gatewayTransactionId String?
+  status               PaymentStatus  @default(PENDING_DIRECT_DEBIT)
+  failureReason        String?
+
+  invoiceNumber String? @unique
+  invoicePdfUrl String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerId])
+  @@index([jobId])
+  @@map("transactions")
+}
+
+model Notification {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+  jobId      String?
+  job        Job?     @relation(fields: [jobId], references: [id])
+
+  type      NotificationType
+  channel   NotificationChannel
+  recipient String // phone number or email actually used
+  subject   String?
+  body      String   @db.Text
+  status    String   @default("queued") // queued, sent, delivered, failed
+  providerMessageId String?
+  sentAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([customerId])
+  @@map("notifications")
+}
