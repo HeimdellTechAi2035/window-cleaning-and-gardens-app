@@ -1,5 +1,9 @@
 [build]
-  command = "npm run build"
+  # Netlify's native Database feature injects NETLIFY_DATABASE_URL /
+  # NETLIFY_DATABASE_URL_UNPOOLED rather than plain DATABASE_URL. Map
+  # whichever is present onto the names prisma/schema.prisma expects
+  # before running the actual build.
+  command = "export DATABASE_URL=\"${DATABASE_URL:-$NETLIFY_DATABASE_URL}\" && export DATABASE_URL_UNPOOLED=\"${DATABASE_URL_UNPOOLED:-${NETLIFY_DATABASE_URL_UNPOOLED:-$DATABASE_URL}}\" && npm run build"
 
 [build.environment]
   NODE_VERSION = "20"
