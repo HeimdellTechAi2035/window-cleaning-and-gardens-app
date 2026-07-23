@@ -64,14 +64,14 @@ export function RouteMap({ date, stops }: { date: string; stops: RouteStopData[]
 
   if (!token) {
     return (
-      <div className="flex h-[520px] items-center justify-center rounded-xl border border-dashed border-border text-sm text-muted-foreground">
+      <div className="flex h-[360px] sm:h-[440px] lg:h-[520px] items-center justify-center rounded-xl border border-dashed border-border text-sm text-muted-foreground">
         Set NEXT_PUBLIC_MAPBOX_TOKEN to enable the route map.
       </div>
     );
   }
 
   return (
-    <div className="relative h-[560px] overflow-hidden rounded-xl border border-border">
+    <div className="relative h-[400px] sm:h-[480px] lg:h-[560px] overflow-hidden rounded-xl border border-border">
       <Map
         mapboxAccessToken={token}
         initialViewState={{ ...center, zoom: 11 }}

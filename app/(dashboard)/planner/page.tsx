@@ -72,7 +72,7 @@ export default async function PlannerPage({
           No jobs scheduled for this day.
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
           {jobCards.map((job) => (
             <JobCard key={job.id} job={job} draggable />
           ))}

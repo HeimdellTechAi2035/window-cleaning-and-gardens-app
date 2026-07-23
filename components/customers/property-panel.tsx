@@ -83,12 +83,12 @@ export function PropertyPanel({ property }: { property: PropertyPanelData }) {
             </div>
           ))}
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Input
             placeholder="e.g. Aggressive Dog"
             value={hazardLabel}
             onChange={(e) => setHazardLabel(e.target.value)}
-            className="h-8 text-xs"
+            className="h-8 min-w-0 flex-1 basis-32 text-xs"
           />
           <select
             value={hazardSeverity}
@@ -131,12 +131,12 @@ export function PropertyPanel({ property }: { property: PropertyPanelData }) {
             </div>
           ))}
         </div>
-        <div className="grid grid-cols-[1fr_5rem_5rem_2.5rem] gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_5rem_5rem_2.5rem]">
           <Input
             placeholder="Standard Window Clean"
             value={serviceTitle}
             onChange={(e) => setServiceTitle(e.target.value)}
-            className="h-8 text-xs"
+            className="col-span-2 h-8 text-xs sm:col-span-1"
           />
           <Input
             placeholder="£"
@@ -156,7 +156,13 @@ export function PropertyPanel({ property }: { property: PropertyPanelData }) {
             <option value="8">8wk</option>
             <option value="12">12wk</option>
           </select>
-          <Button size="sm" variant="outline" onClick={submitService} disabled={isPending}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={submitService}
+            disabled={isPending}
+            className="col-span-2 sm:col-span-1"
+          >
             {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
           </Button>
         </div>

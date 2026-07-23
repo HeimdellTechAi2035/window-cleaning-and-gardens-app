@@ -34,7 +34,7 @@ export default async function RoundsPage() {
           No rounds yet. Create your first round to start scheduling jobs.
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {rounds.map((round) => {
             const scheduledValue = round.jobs.reduce((sum, j) => sum + Number(j.priceCharged), 0);
             return (

@@ -28,7 +28,7 @@ export default async function CustomersPage() {
           No customers yet. Add your first customer to get started.
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {customers.map((customer) => (
             <Link key={customer.id} href={`/customers/${customer.id}`}>
               <Card className="h-full transition-colors hover:border-primary/40">
