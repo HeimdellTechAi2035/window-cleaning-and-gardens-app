@@ -5,7 +5,15 @@ import { authConfig } from "@/lib/auth.config";
 
 const { auth } = NextAuth(authConfig);
 
-const PUBLIC_PATHS = ["/login", "/register", "/api/auth", "/api/webhooks", "/portal"];
+const PUBLIC_PATHS = [
+  "/login",
+  "/register",
+  "/api/auth",
+  "/api/webhooks",
+  "/portal",
+  "/manifest.webmanifest",
+  "/sw.js",
+];
 
 export default auth((req: NextRequest & { auth: unknown }) => {
   const { pathname } = req.nextUrl;
@@ -23,5 +31,7 @@ export default auth((req: NextRequest & { auth: unknown }) => {
 });
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|svg|webp)).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|sw.js|manifest.webmanifest|.*\\.(?:png|jpg|jpeg|svg|webp|ico)).*)",
+  ],
 };
