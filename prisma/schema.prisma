@@ -224,6 +224,15 @@ model Property {
   accessNotes String? @db.Text
   hazards     PropertyHazard[]
 
+  // The round this property belongs to. Set automatically from the city
+  // on create/edit, unless roundLocked is true — which happens once an
+  // admin manually moves it via "Move to round" (e.g. when a big area
+  // round like "Preston" gets split into day-sized sub-rounds), so a
+  // later address edit doesn't silently snap it back.
+  roundId     String?
+  round       Round?  @relation(fields: [roundId], references: [id])
+  roundLocked Boolean @default(false)
+
   propertyPhotoUrl String?
   isActive         Boolean  @default(true)
   createdAt        DateTime @default(now())
@@ -233,6 +242,7 @@ model Property {
   jobs     Job[]
 
   @@index([customerId])
+  @@index([roundId])
   @@map("properties")
 }
 
@@ -292,7 +302,8 @@ model Round {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  jobs Job[]
+  jobs       Job[]
+  properties Property[]
 
   @@unique([organizationId, name])
   @@index([organizationId])

@@ -5,7 +5,7 @@ import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { geocodeAddress } from "@/lib/route-optimizer";
-import { upsertAreaRound, reassignPropertyJobsToRound, findConflictingRound } from "@/lib/rounds";
+import { upsertAreaRound, assignPropertyToRound, findConflictingRound } from "@/lib/rounds";
 import { parseDateInput } from "@/lib/utils";
 import type { PaymentMethod, HazardSeverity } from "@prisma/client";
 
@@ -96,6 +96,7 @@ export async function createCustomerAction(formData: FormData) {
           postcode: parsed.postcode,
           latitude: coords?.latitude,
           longitude: coords?.longitude,
+          roundId: round.id,
           services: {
             create: parsed.services.map((s) => ({
               title: s.title,
@@ -174,6 +175,11 @@ export async function updateCustomerAction(formData: FormData) {
   });
 
   if (parsed.propertyId && parsed.addressLine1 && parsed.city && parsed.postcode) {
+    const existingProperty = await prisma.property.findFirstOrThrow({
+      where: { id: parsed.propertyId, customerId: parsed.customerId },
+      select: { roundLocked: true },
+    });
+
     let coords: { latitude: number; longitude: number } | null = null;
     try {
       coords = await geocodeAddress(`${parsed.addressLine1}, ${parsed.city}, ${parsed.postcode}, UK`);
@@ -194,12 +200,17 @@ export async function updateCustomerAction(formData: FormData) {
     // Keep the round in sync with the (possibly corrected) city — moves
     // this property's jobs onto the right round and cleans up an old
     // auto-generated round if it's now empty, so fixing a typo doesn't
-    // leave a stale duplicate round behind.
-    const round = await upsertAreaRound(session.user.organizationId, parsed.city);
-    await reassignPropertyJobsToRound(parsed.propertyId, round.id);
-    revalidatePath("/rounds");
-    revalidatePath("/planner");
-    revalidatePath("/dashboard");
+    // leave a stale duplicate round behind. Skipped if the property has
+    // been manually moved to a round (e.g. as part of splitting a big
+    // area round into day-sized sub-rounds), so an address edit doesn't
+    // silently undo that.
+    if (!existingProperty.roundLocked) {
+      const round = await upsertAreaRound(session.user.organizationId, parsed.city);
+      await assignPropertyToRound(parsed.propertyId, round.id);
+      revalidatePath("/rounds");
+      revalidatePath("/planner");
+      revalidatePath("/dashboard");
+    }
   }
 
   revalidatePath(`/customers/${parsed.customerId}`);
@@ -233,12 +244,17 @@ export async function addServiceAction(params: {
 
   const property = await prisma.property.findFirstOrThrow({
     where: { id: params.propertyId, customer: { organizationId: session.user.organizationId } },
+    include: { round: true },
   });
 
   // Match the signup flow: adding a service also schedules its first job
-  // (on the date the admin picked) on the correct area round, rather than
-  // leaving it dangling with no job until someone schedules one manually.
-  const round = await upsertAreaRound(session.user.organizationId, property.city);
+  // (on the date the admin picked). Use the property's already-assigned
+  // round if it has one (respects a manual "move to round" override);
+  // otherwise fall back to deriving one from the city, same as signup.
+  const round = property.round ?? (await upsertAreaRound(session.user.organizationId, property.city));
+  if (!property.roundId) {
+    await prisma.property.update({ where: { id: property.id }, data: { roundId: round.id } });
+  }
 
   const conflict = await findConflictingRound({
     organizationId: session.user.organizationId,

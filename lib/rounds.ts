@@ -23,16 +23,34 @@ export async function upsertAreaRound(organizationId: string, cityRaw: string) {
 }
 
 /**
- * Moves every job for a property onto the given round (used when a
- * property's city is corrected after the fact) and cleans up any
- * now-empty auto-generated round left behind, so a typo fix doesn't
- * leave an orphaned duplicate round sitting on the Rounds page.
+ * Sets a property's round (the source of truth going forward, rather than
+ * re-deriving it from the city every time) and moves every one of its
+ * existing jobs onto that round too. Used both for the automatic
+ * city-based assignment and for manually moving a property to a different
+ * round — e.g. once a big area round like "Preston" needs splitting into
+ * day-sized sub-rounds. Cleans up a now-empty auto-generated round left
+ * behind so a reassignment doesn't leave an orphaned duplicate.
+ *
+ * `locked: true` marks the assignment as manual, so future automatic
+ * city-based reassignment (on an address edit) leaves it alone.
  */
-export async function reassignPropertyJobsToRound(propertyId: string, roundId: string) {
+export async function assignPropertyToRound(
+  propertyId: string,
+  roundId: string,
+  options?: { locked?: boolean }
+) {
   const affectedRounds = await prisma.job.findMany({
     where: { propertyId },
     select: { roundId: true },
     distinct: ["roundId"],
+  });
+
+  await prisma.property.update({
+    where: { id: propertyId },
+    data: {
+      roundId,
+      ...(options?.locked ? { roundLocked: true } : {}),
+    },
   });
 
   await prisma.job.updateMany({

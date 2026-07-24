@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { assignPropertyToRound } from "@/lib/rounds";
 
 async function requireSession() {
   const session = await auth();
@@ -85,9 +86,38 @@ export async function mergeRoundsAction(params: { sourceRoundId: string; targetR
   ]);
 
   await prisma.job.updateMany({ where: { roundId: source.id }, data: { roundId: target.id } });
+  await prisma.property.updateMany({ where: { roundId: source.id }, data: { roundId: target.id } });
   await prisma.round.delete({ where: { id: source.id } });
 
   revalidatePath("/rounds");
+  revalidatePath("/planner");
+  revalidatePath("/dashboard");
+}
+
+/**
+ * Manually moves a single property (and all its jobs) onto a different
+ * round, and locks it there so a later address edit won't auto-reassign
+ * it back. This is the lever for splitting a big area round like
+ * "Preston" into day-sized sub-rounds once it's grown too large for one
+ * crew to cover — create the new round first, then move properties into
+ * it one at a time (or a few at a time) from the round's detail page.
+ */
+export async function moveToRoundAction(params: { propertyId: string; targetRoundId: string }) {
+  const session = await requireSession();
+
+  const [property, targetRound] = await Promise.all([
+    prisma.property.findFirstOrThrow({
+      where: { id: params.propertyId, customer: { organizationId: session.user.organizationId } },
+    }),
+    prisma.round.findFirstOrThrow({
+      where: { id: params.targetRoundId, organizationId: session.user.organizationId },
+    }),
+  ]);
+
+  await assignPropertyToRound(property.id, targetRound.id, { locked: true });
+
+  revalidatePath("/rounds");
+  revalidatePath("/customers");
   revalidatePath("/planner");
   revalidatePath("/dashboard");
 }
