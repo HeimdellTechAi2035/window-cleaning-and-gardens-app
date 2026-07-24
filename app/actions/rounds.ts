@@ -38,6 +38,61 @@ export async function createRoundAction(formData: FormData) {
   revalidatePath("/rounds");
 }
 
+const updateRoundSchema = z.object({
+  roundId: z.string().min(1),
+  name: z.string().min(1),
+  description: z.string().optional(),
+  colorCode: z.string().min(1),
+});
+
+/**
+ * Renames/re-colors a round. Manually renaming it counts as taking
+ * deliberate manual control, so every property currently in it gets
+ * locked — otherwise a later address edit on one of them would re-derive
+ * a round from the city name (e.g. spawn a fresh "Preston"), silently
+ * moving it out of the round you just renamed.
+ */
+export async function updateRoundAction(formData: FormData) {
+  const session = await requireSession();
+  const parsed = updateRoundSchema.parse({
+    roundId: formData.get("roundId"),
+    name: formData.get("name"),
+    description: formData.get("description") || undefined,
+    colorCode: formData.get("colorCode") || "#6366f1",
+  });
+
+  const round = await prisma.round.findFirstOrThrow({
+    where: { id: parsed.roundId, organizationId: session.user.organizationId },
+  });
+
+  const nameTaken =
+    round.name.toLowerCase() !== parsed.name.toLowerCase() &&
+    (await prisma.round.findFirst({
+      where: {
+        organizationId: session.user.organizationId,
+        name: { equals: parsed.name, mode: "insensitive" },
+      },
+    }));
+  if (nameTaken) {
+    throw new Error(`A round named "${parsed.name}" already exists — use Merge instead.`);
+  }
+
+  await prisma.round.update({
+    where: { id: round.id },
+    data: { name: parsed.name, description: parsed.description, colorCode: parsed.colorCode },
+  });
+
+  await prisma.property.updateMany({
+    where: { roundId: round.id },
+    data: { roundLocked: true },
+  });
+
+  revalidatePath("/rounds");
+  revalidatePath(`/rounds/${round.id}`);
+  revalidatePath("/planner");
+  revalidatePath("/dashboard");
+}
+
 export async function scheduleJobAction(params: {
   roundId: string;
   propertyId: string;

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { HazardBadge } from "@/components/planner/hazard-badge";
 import { JobStatusBadge } from "@/components/planner/job-status-badge";
 import { MoveToRoundModal } from "@/components/rounds/move-to-round-modal";
+import { EditRoundDialog } from "@/components/rounds/edit-round-dialog";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { ArrowLeft, MapPin, Repeat, Split } from "lucide-react";
 
@@ -73,9 +74,17 @@ export default async function RoundDetailPage({
             )}
           </div>
         </div>
-        <Badge variant={round.isActive ? "success" : "secondary"}>
-          {round.isActive ? "Active" : "Paused"}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Badge variant={round.isActive ? "success" : "secondary"}>
+            {round.isActive ? "Active" : "Paused"}
+          </Badge>
+          <EditRoundDialog
+            roundId={round.id}
+            name={round.name}
+            description={round.description}
+            colorCode={round.colorCode}
+          />
+        </div>
       </div>
 
       <p className="text-sm text-muted-foreground">
