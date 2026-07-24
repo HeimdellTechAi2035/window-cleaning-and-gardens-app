@@ -37,11 +37,13 @@ const customerSchema = z.object({
     .default([]),
 });
 
-export async function createCustomerAction(formData: FormData) {
+export async function createCustomerAction(
+  formData: FormData
+): Promise<{ customerId: string; areaName: string } | { debugError: string }> {
   try {
     return await createCustomerActionInner(formData);
   } catch (e) {
-    throw new Error(`DEBUG: ${e instanceof Error ? `${e.message}\n${e.stack}` : String(e)}`);
+    return { debugError: e instanceof Error ? `${e.message}\n${e.stack}` : String(e) };
   }
 }
 

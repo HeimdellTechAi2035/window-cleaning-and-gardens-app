@@ -65,6 +65,10 @@ export function CreateCustomerDialog() {
     startTransition(async () => {
       try {
         const result = await createCustomerAction(formData);
+        if ("debugError" in result) {
+          setSubmitError(result.debugError);
+          return;
+        }
         setOpen(false);
         formRef.current?.reset();
         setEnabledServices({});
