@@ -7,6 +7,7 @@ import { PropertyPanel } from "@/components/customers/property-panel";
 import { DirectDebitInviteModal } from "@/components/payments/direct-debit-invite-modal";
 import { SendPaymentLinkModal } from "@/components/payments/send-payment-link-modal";
 import { EditCustomerDialog } from "@/components/customers/edit-customer-dialog";
+import { CopyPortalLinkButton } from "@/components/customers/copy-portal-link-button";
 import { JobHistoryRow } from "@/components/planner/job-history-row";
 import { initials } from "@/lib/utils";
 import { Mail, Phone } from "lucide-react";
@@ -71,6 +72,7 @@ export default async function CustomerDetailPage({
                 Mandate: {customer.mandateStatus}
               </Badge>
             )}
+            <CopyPortalLinkButton portalToken={customer.portalToken} />
             <SendPaymentLinkModal customerId={customer.id} />
             <DirectDebitInviteModal customerId={customer.id} />
             <EditCustomerDialog
