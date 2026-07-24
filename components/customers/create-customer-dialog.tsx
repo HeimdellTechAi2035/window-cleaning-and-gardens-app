@@ -63,20 +63,16 @@ export function CreateCustomerDialog() {
 
     setSubmitError(null);
     startTransition(async () => {
-      try {
-        const result = await createCustomerAction(formData);
-        if ("debugError" in result) {
-          setSubmitError(result.debugError);
-          return;
-        }
-        setOpen(false);
-        formRef.current?.reset();
-        setEnabledServices({});
-        setCity("");
-        router.push(`/customers/${result.customerId}`);
-      } catch (err) {
-        setSubmitError(err instanceof Error ? err.message : "Failed to add customer");
+      const result = await createCustomerAction(formData);
+      if ("error" in result) {
+        setSubmitError(result.error);
+        return;
       }
+      setOpen(false);
+      formRef.current?.reset();
+      setEnabledServices({});
+      setCity("");
+      router.push(`/customers/${result.customerId}`);
     });
   }
 

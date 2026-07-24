@@ -37,13 +37,18 @@ const customerSchema = z.object({
     .default([]),
 });
 
+// Thrown Errors from Server Actions don't reliably reach the client in
+// production when the action also triggers a revalidation of the current
+// route (the request comes back as a generic 500 instead of a catchable
+// rejection) — so validation failures are returned as a typed result
+// instead of thrown, and the caller checks for `.error`.
 export async function createCustomerAction(
   formData: FormData
-): Promise<{ customerId: string; areaName: string } | { debugError: string }> {
+): Promise<{ customerId: string; areaName: string } | { error: string }> {
   try {
     return await createCustomerActionInner(formData);
   } catch (e) {
-    return { debugError: e instanceof Error ? `${e.message}\n${e.stack}` : String(e) };
+    return { error: e instanceof Error ? e.message : "Failed to add customer" };
   }
 }
 
@@ -258,7 +263,21 @@ export async function addServiceAction(params: {
   price: number;
   defaultIntervalWeeks: number;
   scheduledDate: string;
-}) {
+}): Promise<{ ok: true } | { error: string }> {
+  try {
+    return await addServiceActionInner(params);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Failed to add service" };
+  }
+}
+
+async function addServiceActionInner(params: {
+  propertyId: string;
+  title: string;
+  price: number;
+  defaultIntervalWeeks: number;
+  scheduledDate: string;
+}): Promise<{ ok: true }> {
   const session = await requireSession();
 
   const property = await prisma.property.findFirstOrThrow({
@@ -311,6 +330,7 @@ export async function addServiceAction(params: {
   revalidatePath("/rounds");
   revalidatePath("/planner");
   revalidatePath("/dashboard");
+  return { ok: true };
 }
 
 export async function updateAccessNotesAction(params: { propertyId: string; accessNotes: string }) {

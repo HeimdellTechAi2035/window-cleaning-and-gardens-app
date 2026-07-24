@@ -79,7 +79,25 @@ export async function pushRoundAction(params: { date: string; hours: 24 | 48 }) 
   return { count: updated.length };
 }
 
-export async function updateJobDateAction(params: { jobId: string; scheduledDate: string }) {
+// Thrown Errors from Server Actions don't reliably reach the client in
+// production when the action also triggers a revalidation of the current
+// route — so validation failures are returned as a typed result instead
+// of thrown, and the caller checks for `.error`.
+export async function updateJobDateAction(params: {
+  jobId: string;
+  scheduledDate: string;
+}): Promise<{ ok: true } | { error: string }> {
+  try {
+    return await updateJobDateActionInner(params);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Failed to save date" };
+  }
+}
+
+async function updateJobDateActionInner(params: {
+  jobId: string;
+  scheduledDate: string;
+}): Promise<{ ok: true }> {
   const session = await requireSession();
 
   const job = await prisma.job.findFirstOrThrow({
@@ -113,6 +131,7 @@ export async function updateJobDateAction(params: { jobId: string; scheduledDate
   revalidatePath("/planner");
   revalidatePath("/rounds");
   revalidatePath("/dashboard");
+  return { ok: true };
 }
 
 export async function reorderJobsAction(order: { jobId: string; sequenceOrder: number }[]) {

@@ -29,13 +29,13 @@ export function JobHistoryRow({ job }: { job: JobHistoryRowData }) {
   function handleSave() {
     setError(null);
     startTransition(async () => {
-      try {
-        await updateJobDateAction({ jobId: job.id, scheduledDate: date });
-        setSaved(true);
-        setTimeout(() => setSaved(false), 1800);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to save date");
+      const result = await updateJobDateAction({ jobId: job.id, scheduledDate: date });
+      if ("error" in result) {
+        setError(result.error);
+        return;
       }
+      setSaved(true);
+      setTimeout(() => setSaved(false), 1800);
     });
   }
 

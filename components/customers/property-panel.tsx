@@ -65,21 +65,18 @@ export function PropertyPanel({ property }: { property: PropertyPanelData }) {
     if (!price || price <= 0) return;
     setPresetErrors((prev) => ({ ...prev, [presetKey]: "" }));
     startTransition(async () => {
-      try {
-        await addServiceAction({
-          propertyId: property.id,
-          title,
-          price,
-          defaultIntervalWeeks: Number(presetIntervals[presetKey]),
-          scheduledDate: presetDates[presetKey],
-        });
-        setPresetOpen((prev) => ({ ...prev, [presetKey]: false }));
-      } catch (err) {
-        setPresetErrors((prev) => ({
-          ...prev,
-          [presetKey]: err instanceof Error ? err.message : "Failed to add service",
-        }));
+      const result = await addServiceAction({
+        propertyId: property.id,
+        title,
+        price,
+        defaultIntervalWeeks: Number(presetIntervals[presetKey]),
+        scheduledDate: presetDates[presetKey],
+      });
+      if ("error" in result) {
+        setPresetErrors((prev) => ({ ...prev, [presetKey]: result.error }));
+        return;
       }
+      setPresetOpen((prev) => ({ ...prev, [presetKey]: false }));
     });
   }
 
@@ -109,20 +106,20 @@ export function PropertyPanel({ property }: { property: PropertyPanelData }) {
     }
     setServiceError(null);
     startTransition(async () => {
-      try {
-        await addServiceAction({
-          propertyId: property.id,
-          title: serviceTitle,
-          price: Number(servicePrice),
-          defaultIntervalWeeks: Number(serviceInterval),
-          scheduledDate: serviceDate,
-        });
-        setServiceTitle("");
-        setServicePrice("");
-        flash(setServiceAdded);
-      } catch (err) {
-        setServiceError(err instanceof Error ? err.message : "Failed to add service");
+      const result = await addServiceAction({
+        propertyId: property.id,
+        title: serviceTitle,
+        price: Number(servicePrice),
+        defaultIntervalWeeks: Number(serviceInterval),
+        scheduledDate: serviceDate,
+      });
+      if ("error" in result) {
+        setServiceError(result.error);
+        return;
       }
+      setServiceTitle("");
+      setServicePrice("");
+      flash(setServiceAdded);
     });
   }
 

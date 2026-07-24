@@ -52,7 +52,19 @@ const updateRoundSchema = z.object({
  * a round from the city name (e.g. spawn a fresh "Preston"), silently
  * moving it out of the round you just renamed.
  */
-export async function updateRoundAction(formData: FormData) {
+// Thrown Errors from Server Actions don't reliably reach the client in
+// production when the action also triggers a revalidation of the current
+// route — so validation failures are returned as a typed result instead
+// of thrown, and the caller checks for `.error`.
+export async function updateRoundAction(formData: FormData): Promise<{ ok: true } | { error: string }> {
+  try {
+    return await updateRoundActionInner(formData);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Failed to update round" };
+  }
+}
+
+async function updateRoundActionInner(formData: FormData): Promise<{ ok: true }> {
   const session = await requireSession();
   const parsed = updateRoundSchema.parse({
     roundId: formData.get("roundId"),
@@ -91,6 +103,7 @@ export async function updateRoundAction(formData: FormData) {
   revalidatePath(`/rounds/${round.id}`);
   revalidatePath("/planner");
   revalidatePath("/dashboard");
+  return { ok: true };
 }
 
 export async function scheduleJobAction(params: {

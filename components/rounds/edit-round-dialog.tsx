@@ -39,12 +39,12 @@ export function EditRoundDialog({
     formData.set("colorCode", color);
     setError(null);
     startTransition(async () => {
-      try {
-        await updateRoundAction(formData);
-        setOpen(false);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to update round");
+      const result = await updateRoundAction(formData);
+      if ("error" in result) {
+        setError(result.error);
+        return;
       }
+      setOpen(false);
     });
   }
 
