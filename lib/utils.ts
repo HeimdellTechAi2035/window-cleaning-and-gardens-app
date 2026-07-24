@@ -66,6 +66,20 @@ export function generateInvoiceNumber() {
   return `INV-${y}-${rand}`;
 }
 
+/**
+ * Normalizes a city/area name so "preston", "Preston", and "PRESTON" all
+ * resolve to the same round instead of creating case-duplicate rounds.
+ * Genuinely different spellings (e.g. a typo) are not deduplicated —
+ * only casing/whitespace differences are.
+ */
+export function normalizeAreaName(name: string): string {
+  return name
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 const ROUND_COLOR_PALETTE = ["#6366f1", "#0ea5e9", "#22c55e", "#f59e0b", "#ec4899", "#8b5cf6"];
 
 /** Deterministic color per area name, so the same area always gets the same round color. */

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CreateRoundDialog } from "@/components/rounds/create-round-dialog";
+import { MergeRoundModal } from "@/components/rounds/merge-round-modal";
 import { Repeat } from "lucide-react";
 
 export default async function RoundsPage() {
@@ -64,6 +65,16 @@ export default async function RoundsPage() {
                   <div className="flex items-center justify-between border-t border-border pt-3 text-sm">
                     <span className="text-muted-foreground">{round._count.jobs} total jobs</span>
                     <span className="font-medium">£{scheduledValue.toFixed(2)} scheduled</span>
+                  </div>
+
+                  <div className="-mb-1 -mt-1 flex justify-end border-t border-border pt-1">
+                    <MergeRoundModal
+                      roundId={round.id}
+                      roundName={round.name}
+                      otherRounds={rounds
+                        .filter((r) => r.id !== round.id)
+                        .map((r) => ({ id: r.id, name: r.name }))}
+                    />
                   </div>
                 </CardContent>
               </Card>

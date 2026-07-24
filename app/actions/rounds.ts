@@ -64,3 +64,30 @@ export async function scheduleJobAction(params: {
   revalidatePath("/rounds");
   revalidatePath("/planner");
 }
+
+/**
+ * Merges one round into another: every job on the source round moves to
+ * the target, then the (now-empty) source round is deleted. Used to clean
+ * up duplicate rounds — e.g. a "Presston" typo round that should really
+ * be "Preston".
+ */
+export async function mergeRoundsAction(params: { sourceRoundId: string; targetRoundId: string }) {
+  const session = await requireSession();
+  if (params.sourceRoundId === params.targetRoundId) return;
+
+  const [source, target] = await Promise.all([
+    prisma.round.findFirstOrThrow({
+      where: { id: params.sourceRoundId, organizationId: session.user.organizationId },
+    }),
+    prisma.round.findFirstOrThrow({
+      where: { id: params.targetRoundId, organizationId: session.user.organizationId },
+    }),
+  ]);
+
+  await prisma.job.updateMany({ where: { roundId: source.id }, data: { roundId: target.id } });
+  await prisma.round.delete({ where: { id: source.id } });
+
+  revalidatePath("/rounds");
+  revalidatePath("/planner");
+  revalidatePath("/dashboard");
+}

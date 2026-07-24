@@ -5,7 +5,7 @@ import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { geocodeAddress } from "@/lib/route-optimizer";
-import { colorForArea } from "@/lib/utils";
+import { upsertAreaRound, reassignPropertyJobsToRound } from "@/lib/rounds";
 import type { PaymentMethod, HazardSeverity } from "@prisma/client";
 
 async function requireSession() {
@@ -63,19 +63,7 @@ export async function createCustomerAction(formData: FormData) {
   // Auto-assign to a round by area: every property in the same city shares
   // one round, created on first use, so nobody has to manually build rounds
   // or remember to add new customers to them.
-  const areaName = parsed.city.trim();
-  const round = await prisma.round.upsert({
-    where: {
-      organizationId_name: { organizationId: session.user.organizationId, name: areaName },
-    },
-    update: {},
-    create: {
-      organizationId: session.user.organizationId,
-      name: areaName,
-      description: `Auto-generated round for ${areaName}`,
-      colorCode: colorForArea(areaName),
-    },
-  });
+  const round = await upsertAreaRound(session.user.organizationId, parsed.city);
 
   const customer = await prisma.customer.create({
     data: {
@@ -186,6 +174,16 @@ export async function updateCustomerAction(formData: FormData) {
         ...(coords ? { latitude: coords.latitude, longitude: coords.longitude } : {}),
       },
     });
+
+    // Keep the round in sync with the (possibly corrected) city — moves
+    // this property's jobs onto the right round and cleans up an old
+    // auto-generated round if it's now empty, so fixing a typo doesn't
+    // leave a stale duplicate round behind.
+    const round = await upsertAreaRound(session.user.organizationId, parsed.city);
+    await reassignPropertyJobsToRound(parsed.propertyId, round.id);
+    revalidatePath("/rounds");
+    revalidatePath("/planner");
+    revalidatePath("/dashboard");
   }
 
   revalidatePath(`/customers/${parsed.customerId}`);
