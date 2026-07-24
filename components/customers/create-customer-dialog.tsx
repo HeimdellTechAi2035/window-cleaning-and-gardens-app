@@ -215,6 +215,8 @@ export function CreateCustomerDialog() {
                           className="h-8 rounded-md border border-border bg-background px-2 text-sm"
                         >
                           <option value="0">One-off</option>
+                          <option value="1">Weekly</option>
+                          <option value="2">Fortnightly</option>
                           <option value="4">4 weeks</option>
                           <option value="8">8 weeks</option>
                           <option value="12">12 weeks</option>

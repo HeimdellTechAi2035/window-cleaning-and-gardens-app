@@ -124,7 +124,13 @@ export function PropertyPanel({ property }: { property: PropertyPanelData }) {
               <span>{s.title}</span>
               <div className="flex items-center gap-2">
                 <Badge variant="secondary">
-                  {s.defaultIntervalWeeks === 0 ? "One-off" : `Every ${s.defaultIntervalWeeks}wk`}
+                  {s.defaultIntervalWeeks === 0
+                    ? "One-off"
+                    : s.defaultIntervalWeeks === 1
+                      ? "Weekly"
+                      : s.defaultIntervalWeeks === 2
+                        ? "Fortnightly"
+                        : `Every ${s.defaultIntervalWeeks}wk`}
                 </Badge>
                 <span className="font-medium">{formatCurrency(s.price)}</span>
               </div>
@@ -152,6 +158,8 @@ export function PropertyPanel({ property }: { property: PropertyPanelData }) {
             className="h-8 rounded-md border border-border bg-background px-2 text-xs"
           >
             <option value="0">One-off</option>
+            <option value="1">Weekly</option>
+            <option value="2">Fortnightly</option>
             <option value="4">4wk</option>
             <option value="8">8wk</option>
             <option value="12">12wk</option>
