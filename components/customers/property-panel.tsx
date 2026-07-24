@@ -137,9 +137,12 @@ export function PropertyPanel({ property }: { property: PropertyPanelData }) {
             </div>
           ))}
         </div>
+        <p className="mt-1 border-t border-border pt-3 text-xs font-semibold uppercase text-muted-foreground">
+          Add extra service
+        </p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_5rem_5rem_2.5rem]">
           <Input
-            placeholder="Standard Window Clean"
+            placeholder="e.g. Gutter Clean"
             value={serviceTitle}
             onChange={(e) => setServiceTitle(e.target.value)}
             className="col-span-2 h-8 text-xs sm:col-span-1"
