@@ -212,8 +212,13 @@ export async function addServiceAction(params: {
   price: number;
   defaultIntervalWeeks: number;
 }) {
-  await requireSession();
-  await prisma.service.create({
+  const session = await requireSession();
+
+  const property = await prisma.property.findFirstOrThrow({
+    where: { id: params.propertyId, customer: { organizationId: session.user.organizationId } },
+  });
+
+  const service = await prisma.service.create({
     data: {
       propertyId: params.propertyId,
       title: params.title,
@@ -221,7 +226,27 @@ export async function addServiceAction(params: {
       defaultIntervalWeeks: params.defaultIntervalWeeks,
     },
   });
+
+  // Match the signup flow: adding a service also schedules today's first
+  // job for it, on the correct area round, rather than leaving it dangling
+  // with no job until someone remembers to schedule one manually.
+  const round = await upsertAreaRound(session.user.organizationId, property.city);
+  await prisma.job.create({
+    data: {
+      organizationId: session.user.organizationId,
+      roundId: round.id,
+      propertyId: property.id,
+      serviceId: service.id,
+      scheduledDate: new Date(),
+      priceCharged: service.price,
+      intervalWeeksAtCreation: service.defaultIntervalWeeks,
+    },
+  });
+
   revalidatePath("/customers");
+  revalidatePath("/rounds");
+  revalidatePath("/planner");
+  revalidatePath("/dashboard");
 }
 
 export async function updateAccessNotesAction(params: { propertyId: string; accessNotes: string }) {
