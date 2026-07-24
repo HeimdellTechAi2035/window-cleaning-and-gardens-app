@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { startOfDay, endOfDay, formatDate } from "@/lib/utils";
 import { RouteMap } from "@/components/maps/route-map";
+import { GeocodeBackfillBanner } from "@/components/maps/geocode-backfill-banner";
 
 export default async function RouteMapPage({
   searchParams,
@@ -32,12 +33,20 @@ export default async function RouteMapPage({
     customerName: `${job.property.customer.firstName} ${job.property.customer.lastName}`,
   }));
 
+  const missingCoordinatesCount = await prisma.property.count({
+    where: {
+      customer: { organizationId: session!.user.organizationId },
+      OR: [{ latitude: null }, { longitude: null }],
+    },
+  });
+
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-muted-foreground">
         {formatDate(date, { weekday: "long", day: "2-digit", month: "long" })} · {stops.length} stops
         with geocoded addresses
       </p>
+      <GeocodeBackfillBanner missingCount={missingCoordinatesCount} />
       <RouteMap date={startOfDay(date).toISOString()} stops={stops} />
     </div>
   );

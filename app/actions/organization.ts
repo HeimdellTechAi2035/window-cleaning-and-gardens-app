@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { geocodeAddress } from "@/lib/route-optimizer";
 
 async function requireAdminSession() {
   const session = await auth();
@@ -46,6 +47,40 @@ export async function updateIntegrationSettingsAction(formData: FormData) {
   });
 
   revalidatePath("/settings");
+}
+
+export async function backfillPropertyCoordinatesAction(): Promise<{ geocoded: number; failed: number }> {
+  const session = await requireAdminSession();
+
+  const properties = await prisma.property.findMany({
+    where: {
+      customer: { organizationId: session.user.organizationId },
+      OR: [{ latitude: null }, { longitude: null }],
+    },
+    select: { id: true, addressLine1: true, city: true, postcode: true },
+  });
+
+  let geocoded = 0;
+  let failed = 0;
+
+  for (const property of properties) {
+    try {
+      const coords = await geocodeAddress(`${property.addressLine1}, ${property.city}, ${property.postcode}, UK`);
+      if (coords) {
+        await prisma.property.update({ where: { id: property.id }, data: coords });
+        geocoded++;
+      } else {
+        failed++;
+      }
+    } catch {
+      failed++;
+    }
+    // Nominatim's usage policy asks for at most ~1 request/second.
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+  }
+
+  revalidatePath("/route-map");
+  return { geocoded, failed };
 }
 
 export async function inviteTeamMemberAction(formData: FormData) {
