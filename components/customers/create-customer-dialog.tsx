@@ -38,14 +38,14 @@ const serviceOptions: ServiceDraft[] = [
     key: "window-clean",
     icon: Droplets,
     title: "Window Cleaning",
-    defaultPrice: "25",
+    defaultPrice: "12.50",
     defaultIntervalWeeks: "4",
   },
   {
     key: "gardening",
     icon: Trees,
     title: "Gardening",
-    defaultPrice: "30",
+    defaultPrice: "25",
     defaultIntervalWeeks: "4",
   },
 ];
