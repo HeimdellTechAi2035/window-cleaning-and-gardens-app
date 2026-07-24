@@ -5,6 +5,11 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/** Parses a "YYYY-MM-DD" date input value into a Date at a fixed 9am local time. */
+export function parseDateInput(value: string): Date {
+  return new Date(`${value}T09:00:00`);
+}
+
 export function formatCurrency(amount: number | string, currency = "GBP") {
   const value = typeof amount === "string" ? Number(amount) : amount;
   return new Intl.NumberFormat("en-GB", {

@@ -6,6 +6,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { geocodeAddress } from "@/lib/route-optimizer";
 import { upsertAreaRound, reassignPropertyJobsToRound } from "@/lib/rounds";
+import { parseDateInput } from "@/lib/utils";
 import type { PaymentMethod, HazardSeverity } from "@prisma/client";
 
 async function requireSession() {
@@ -23,6 +24,7 @@ const customerSchema = z.object({
   addressLine1: z.string().min(1),
   city: z.string().min(1),
   postcode: z.string().min(1),
+  startDate: z.string().min(1),
   services: z
     .array(
       z.object({
@@ -48,6 +50,7 @@ export async function createCustomerAction(formData: FormData) {
     addressLine1: formData.get("addressLine1"),
     city: formData.get("city"),
     postcode: formData.get("postcode"),
+    startDate: formData.get("startDate"),
     services: rawServices ? JSON.parse(rawServices as string) : [],
   });
 
@@ -103,7 +106,7 @@ export async function createCustomerAction(formData: FormData) {
         roundId: round.id,
         propertyId: property.id,
         serviceId: service.id,
-        scheduledDate: new Date(),
+        scheduledDate: parseDateInput(parsed.startDate),
         priceCharged: service.price,
         intervalWeeksAtCreation: service.defaultIntervalWeeks,
       })),
@@ -211,6 +214,7 @@ export async function addServiceAction(params: {
   title: string;
   price: number;
   defaultIntervalWeeks: number;
+  scheduledDate: string;
 }) {
   const session = await requireSession();
 
@@ -227,9 +231,9 @@ export async function addServiceAction(params: {
     },
   });
 
-  // Match the signup flow: adding a service also schedules today's first
-  // job for it, on the correct area round, rather than leaving it dangling
-  // with no job until someone remembers to schedule one manually.
+  // Match the signup flow: adding a service also schedules its first job
+  // (on the date the admin picked) on the correct area round, rather than
+  // leaving it dangling with no job until someone schedules one manually.
   const round = await upsertAreaRound(session.user.organizationId, property.city);
   await prisma.job.create({
     data: {
@@ -237,7 +241,7 @@ export async function addServiceAction(params: {
       roundId: round.id,
       propertyId: property.id,
       serviceId: service.id,
-      scheduledDate: new Date(),
+      scheduledDate: parseDateInput(params.scheduledDate),
       priceCharged: service.price,
       intervalWeeksAtCreation: service.defaultIntervalWeeks,
     },

@@ -38,6 +38,7 @@ export function CreateCustomerDialog() {
   const [serviceIntervals, setServiceIntervals] = useState<Record<string, string>>(
     Object.fromEntries(serviceOptions.map((s) => [s.key, s.defaultIntervalWeeks]))
   );
+  const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [isPending, startTransition] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -47,6 +48,7 @@ export function CreateCustomerDialog() {
 
   function handleSubmit(formData: FormData) {
     formData.set("preferredPaymentMethod", paymentMethod);
+    formData.set("startDate", startDate);
 
     const services = serviceOptions
       .filter((s) => enabledServices[s.key])
@@ -131,7 +133,21 @@ export function CreateCustomerDialog() {
           )}
 
           <div className="flex flex-col gap-2">
-            <Label>Services</Label>
+            <div className="flex items-center justify-between">
+              <Label>Services</Label>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="startDate" className="text-xs text-muted-foreground">
+                  First visit
+                </Label>
+                <Input
+                  id="startDate"
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="h-8 w-auto text-sm"
+                />
+              </div>
+            </div>
             {serviceOptions.map((s) => {
               const Icon = s.icon;
               const isEnabled = !!enabledServices[s.key];

@@ -41,6 +41,11 @@ export function PropertyPanel({ property }: { property: PropertyPanelData }) {
   const [presetIntervals, setPresetIntervals] = useState<Record<string, string>>(
     Object.fromEntries(servicePresets.map((p) => [p.key, p.defaultIntervalWeeks]))
   );
+  const today = () => new Date().toISOString().slice(0, 10);
+  const [presetDates, setPresetDates] = useState<Record<string, string>>(
+    Object.fromEntries(servicePresets.map((p) => [p.key, today()]))
+  );
+  const [serviceDate, setServiceDate] = useState(today());
 
   const existingTitles = new Set(property.services.map((s) => s.title.toLowerCase()));
   const availablePresets = servicePresets.filter((p) => !existingTitles.has(p.title.toLowerCase()));
@@ -54,6 +59,7 @@ export function PropertyPanel({ property }: { property: PropertyPanelData }) {
         title,
         price,
         defaultIntervalWeeks: Number(presetIntervals[presetKey]),
+        scheduledDate: presetDates[presetKey],
       });
       setPresetOpen((prev) => ({ ...prev, [presetKey]: false }));
     });
@@ -79,6 +85,7 @@ export function PropertyPanel({ property }: { property: PropertyPanelData }) {
         title: serviceTitle,
         price: Number(servicePrice),
         defaultIntervalWeeks: Number(serviceInterval),
+        scheduledDate: serviceDate,
       });
       setServiceTitle("");
       setServicePrice("");
@@ -193,46 +200,65 @@ export function PropertyPanel({ property }: { property: PropertyPanelData }) {
                     />
                   </button>
                   {isOpen && (
-                    <div className="grid grid-cols-[1fr_1fr_2.5rem] gap-2 px-3 pb-3">
-                      <div className="flex flex-col gap-1">
-                        <Label className="text-xs text-muted-foreground">Price (£)</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={presetPrices[preset.key]}
-                          onChange={(e) =>
-                            setPresetPrices((prev) => ({ ...prev, [preset.key]: e.target.value }))
-                          }
-                          className="h-8 text-sm"
-                        />
+                    <div className="flex flex-col gap-2 px-3 pb-3">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="flex flex-col gap-1">
+                          <Label className="text-xs text-muted-foreground">Price (£)</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={presetPrices[preset.key]}
+                            onChange={(e) =>
+                              setPresetPrices((prev) => ({ ...prev, [preset.key]: e.target.value }))
+                            }
+                            className="h-8 text-sm"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <Label className="text-xs text-muted-foreground">Repeat every</Label>
+                          <select
+                            value={presetIntervals[preset.key]}
+                            onChange={(e) =>
+                              setPresetIntervals((prev) => ({ ...prev, [preset.key]: e.target.value }))
+                            }
+                            className="h-8 rounded-md border border-border bg-background px-2 text-sm"
+                          >
+                            <option value="0">One-off</option>
+                            <option value="1">Weekly</option>
+                            <option value="2">Fortnightly</option>
+                            <option value="4">4 weeks</option>
+                            <option value="8">8 weeks</option>
+                            <option value="12">12 weeks</option>
+                          </select>
+                        </div>
                       </div>
-                      <div className="flex flex-col gap-1">
-                        <Label className="text-xs text-muted-foreground">Repeat every</Label>
-                        <select
-                          value={presetIntervals[preset.key]}
-                          onChange={(e) =>
-                            setPresetIntervals((prev) => ({ ...prev, [preset.key]: e.target.value }))
-                          }
-                          className="h-8 rounded-md border border-border bg-background px-2 text-sm"
+                      <div className="flex items-end gap-2">
+                        <div className="flex flex-1 flex-col gap-1">
+                          <Label className="text-xs text-muted-foreground">First visit</Label>
+                          <Input
+                            type="date"
+                            value={presetDates[preset.key]}
+                            onChange={(e) =>
+                              setPresetDates((prev) => ({ ...prev, [preset.key]: e.target.value }))
+                            }
+                            className="h-8 text-sm"
+                          />
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => submitPreset(preset.key, preset.title)}
+                          disabled={isPending}
                         >
-                          <option value="0">One-off</option>
-                          <option value="1">Weekly</option>
-                          <option value="2">Fortnightly</option>
-                          <option value="4">4 weeks</option>
-                          <option value="8">8 weeks</option>
-                          <option value="12">12 weeks</option>
-                        </select>
+                          {isPending ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Plus className="h-3.5 w-3.5" />
+                          )}
+                          Add
+                        </Button>
                       </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="mt-5"
-                        onClick={() => submitPreset(preset.key, preset.title)}
-                        disabled={isPending}
-                      >
-                        {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-                      </Button>
                     </div>
                   )}
                 </div>
@@ -244,42 +270,45 @@ export function PropertyPanel({ property }: { property: PropertyPanelData }) {
         <p className="mt-1 border-t border-border pt-3 text-xs font-semibold uppercase text-muted-foreground">
           Add extra service
         </p>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_5rem_5rem_2.5rem]">
+        <div className="flex flex-col gap-2">
           <Input
             placeholder="e.g. Gutter Clean"
             value={serviceTitle}
             onChange={(e) => setServiceTitle(e.target.value)}
-            className="col-span-2 h-8 text-xs sm:col-span-1"
-          />
-          <Input
-            placeholder="£"
-            type="number"
-            step="0.01"
-            value={servicePrice}
-            onChange={(e) => setServicePrice(e.target.value)}
             className="h-8 text-xs"
           />
-          <select
-            value={serviceInterval}
-            onChange={(e) => setServiceInterval(e.target.value)}
-            className="h-8 rounded-md border border-border bg-background px-2 text-xs"
-          >
-            <option value="0">One-off</option>
-            <option value="1">Weekly</option>
-            <option value="2">Fortnightly</option>
-            <option value="4">4wk</option>
-            <option value="8">8wk</option>
-            <option value="12">12wk</option>
-          </select>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={submitService}
-            disabled={isPending}
-            className="col-span-2 sm:col-span-1"
-          >
-            {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              placeholder="£"
+              type="number"
+              step="0.01"
+              value={servicePrice}
+              onChange={(e) => setServicePrice(e.target.value)}
+              className="h-8 w-20 text-xs"
+            />
+            <select
+              value={serviceInterval}
+              onChange={(e) => setServiceInterval(e.target.value)}
+              className="h-8 rounded-md border border-border bg-background px-2 text-xs"
+            >
+              <option value="0">One-off</option>
+              <option value="1">Weekly</option>
+              <option value="2">Fortnightly</option>
+              <option value="4">4wk</option>
+              <option value="8">8wk</option>
+              <option value="12">12wk</option>
+            </select>
+            <Input
+              type="date"
+              value={serviceDate}
+              onChange={(e) => setServiceDate(e.target.value)}
+              className="h-8 w-auto text-xs"
+            />
+            <Button size="sm" variant="outline" onClick={submitService} disabled={isPending}>
+              {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+              Add
+            </Button>
+          </div>
         </div>
       </div>
     </div>
