@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Loader2, Droplets, Trees } from "lucide-react";
+import { Plus, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { servicePresets as serviceOptions } from "@/lib/service-presets";
 import { createCustomerAction } from "@/app/actions/customers";
 
 const paymentMethods = [
@@ -24,31 +25,6 @@ const paymentMethods = [
   { value: "CASH", label: "Cash" },
   { value: "BANK_TRANSFER", label: "Bank Transfer" },
 ] as const;
-
-interface ServiceDraft {
-  key: string;
-  icon: typeof Droplets;
-  title: string;
-  defaultPrice: string;
-  defaultIntervalWeeks: string;
-}
-
-const serviceOptions: ServiceDraft[] = [
-  {
-    key: "window-clean",
-    icon: Droplets,
-    title: "Window Cleaning",
-    defaultPrice: "12.50",
-    defaultIntervalWeeks: "4",
-  },
-  {
-    key: "gardening",
-    icon: Trees,
-    title: "Gardening",
-    defaultPrice: "25",
-    defaultIntervalWeeks: "4",
-  },
-];
 
 export function CreateCustomerDialog() {
   const router = useRouter();
