@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { HazardBadge } from "@/components/planner/hazard-badge";
 import { JobStatusBadge } from "@/components/planner/job-status-badge";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, normalizeAreaName } from "@/lib/utils";
 import { ArrowLeft, MapPin, Repeat } from "lucide-react";
 
 export default async function RoundDetailPage({
@@ -23,8 +23,12 @@ export default async function RoundDetailPage({
 
   if (!round) notFound();
 
-  const properties = await prisma.property.findMany({
-    where: { jobs: { some: { roundId: round.id } } },
+  // A property belongs to this round either because it already has a job
+  // scheduled on it, or because its city matches the round's area name —
+  // the latter catches customers added without a service yet (no job has
+  // been created for them), who should still show up as part of the area.
+  const orgProperties = await prisma.property.findMany({
+    where: { customer: { organizationId: session!.user.organizationId } },
     include: {
       customer: true,
       hazards: true,
@@ -37,6 +41,12 @@ export default async function RoundDetailPage({
     },
     orderBy: { addressLine1: "asc" },
   });
+
+  const normalizedRoundName = normalizeAreaName(round.name);
+  const properties = orgProperties.filter(
+    (property) =>
+      property.jobs.length > 0 || normalizeAreaName(property.city) === normalizedRoundName
+  );
 
   return (
     <div className="flex flex-col gap-5">
