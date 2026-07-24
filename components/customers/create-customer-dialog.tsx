@@ -40,6 +40,7 @@ export function CreateCustomerDialog() {
   );
   const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [isPending, startTransition] = useTransition();
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
   function toggleService(key: string) {
@@ -60,13 +61,18 @@ export function CreateCustomerDialog() {
       .filter((s) => s.price > 0);
     formData.set("services", JSON.stringify(services));
 
+    setSubmitError(null);
     startTransition(async () => {
-      const result = await createCustomerAction(formData);
-      setOpen(false);
-      formRef.current?.reset();
-      setEnabledServices({});
-      setCity("");
-      router.push(`/customers/${result.customerId}`);
+      try {
+        const result = await createCustomerAction(formData);
+        setOpen(false);
+        formRef.current?.reset();
+        setEnabledServices({});
+        setCity("");
+        router.push(`/customers/${result.customerId}`);
+      } catch (err) {
+        setSubmitError(err instanceof Error ? err.message : "Failed to add customer");
+      }
     });
   }
 
@@ -247,6 +253,8 @@ export function CreateCustomerDialog() {
               </p>
             )}
           </div>
+
+          {submitError && <p className="text-sm text-destructive">{submitError}</p>}
 
           <DialogFooter>
             <DialogClose asChild>

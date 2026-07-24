@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import * as jobsLib from "@/lib/jobs";
+import { findConflictingRound } from "@/lib/rounds";
 import { parseDateInput } from "@/lib/utils";
 import type { SkipReason } from "@prisma/client";
 
@@ -87,12 +88,24 @@ export async function updateJobDateAction(params: { jobId: string; scheduledDate
       organizationId: session.user.organizationId,
       status: { in: ["SCHEDULED", "IN_PROGRESS"] },
     },
-    include: { property: { select: { customerId: true } } },
+    include: { property: { select: { customerId: true } }, round: true },
   });
+
+  const newDate = parseDateInput(params.scheduledDate);
+  const conflict = await findConflictingRound({
+    organizationId: session.user.organizationId,
+    date: newDate,
+    roundId: job.roundId,
+  });
+  if (conflict) {
+    throw new Error(
+      `Can't move "${job.round.name}" to that date — "${conflict.name}" is already booked that day. Pick a different date, or reschedule ${conflict.name} first.`
+    );
+  }
 
   await prisma.job.update({
     where: { id: job.id },
-    data: { scheduledDate: parseDateInput(params.scheduledDate) },
+    data: { scheduledDate: newDate },
   });
 
   revalidatePath("/customers");

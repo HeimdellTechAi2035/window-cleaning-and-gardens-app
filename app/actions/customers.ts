@@ -5,7 +5,7 @@ import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { geocodeAddress } from "@/lib/route-optimizer";
-import { upsertAreaRound, reassignPropertyJobsToRound } from "@/lib/rounds";
+import { upsertAreaRound, reassignPropertyJobsToRound, findConflictingRound } from "@/lib/rounds";
 import { parseDateInput } from "@/lib/utils";
 import type { PaymentMethod, HazardSeverity } from "@prisma/client";
 
@@ -67,6 +67,19 @@ export async function createCustomerAction(formData: FormData) {
   // one round, created on first use, so nobody has to manually build rounds
   // or remember to add new customers to them.
   const round = await upsertAreaRound(session.user.organizationId, parsed.city);
+
+  if (parsed.services.length > 0) {
+    const conflict = await findConflictingRound({
+      organizationId: session.user.organizationId,
+      date: parseDateInput(parsed.startDate),
+      roundId: round.id,
+    });
+    if (conflict) {
+      throw new Error(
+        `Can't schedule "${round.name}" on that date — "${conflict.name}" is already booked that day. Pick a different date, or reschedule ${conflict.name} first.`
+      );
+    }
+  }
 
   const customer = await prisma.customer.create({
     data: {
@@ -222,6 +235,22 @@ export async function addServiceAction(params: {
     where: { id: params.propertyId, customer: { organizationId: session.user.organizationId } },
   });
 
+  // Match the signup flow: adding a service also schedules its first job
+  // (on the date the admin picked) on the correct area round, rather than
+  // leaving it dangling with no job until someone schedules one manually.
+  const round = await upsertAreaRound(session.user.organizationId, property.city);
+
+  const conflict = await findConflictingRound({
+    organizationId: session.user.organizationId,
+    date: parseDateInput(params.scheduledDate),
+    roundId: round.id,
+  });
+  if (conflict) {
+    throw new Error(
+      `Can't schedule "${round.name}" on that date — "${conflict.name}" is already booked that day. Pick a different date, or reschedule ${conflict.name} first.`
+    );
+  }
+
   const service = await prisma.service.create({
     data: {
       propertyId: params.propertyId,
@@ -231,10 +260,6 @@ export async function addServiceAction(params: {
     },
   });
 
-  // Match the signup flow: adding a service also schedules its first job
-  // (on the date the admin picked) on the correct area round, rather than
-  // leaving it dangling with no job until someone schedules one manually.
-  const round = await upsertAreaRound(session.user.organizationId, property.city);
   await prisma.job.create({
     data: {
       organizationId: session.user.organizationId,

@@ -24,12 +24,18 @@ export function JobHistoryRow({ job }: { job: JobHistoryRowData }) {
   const [date, setDate] = useState(job.scheduledDate.slice(0, 10));
   const [isPending, startTransition] = useTransition();
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   function handleSave() {
+    setError(null);
     startTransition(async () => {
-      await updateJobDateAction({ jobId: job.id, scheduledDate: date });
-      setSaved(true);
-      setTimeout(() => setSaved(false), 1800);
+      try {
+        await updateJobDateAction({ jobId: job.id, scheduledDate: date });
+        setSaved(true);
+        setTimeout(() => setSaved(false), 1800);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to save date");
+      }
     });
   }
 
@@ -56,7 +62,9 @@ export function JobHistoryRow({ job }: { job: JobHistoryRowData }) {
               </Button>
             )}
           </div>
-        ) : (
+        ) : null}
+        {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
+        {!editable && (
           <p className="text-xs text-muted-foreground">{formatDate(job.scheduledDate)}</p>
         )}
       </div>

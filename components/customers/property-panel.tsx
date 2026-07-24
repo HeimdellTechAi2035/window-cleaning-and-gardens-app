@@ -50,6 +50,7 @@ export function PropertyPanel({ property }: { property: PropertyPanelData }) {
   const [hazardError, setHazardError] = useState<string | null>(null);
   const [serviceAdded, setServiceAdded] = useState(false);
   const [serviceError, setServiceError] = useState<string | null>(null);
+  const [presetErrors, setPresetErrors] = useState<Record<string, string>>({});
 
   function flash(setter: (v: boolean) => void) {
     setter(true);
@@ -62,15 +63,23 @@ export function PropertyPanel({ property }: { property: PropertyPanelData }) {
   function submitPreset(presetKey: string, title: string) {
     const price = Number(presetPrices[presetKey]);
     if (!price || price <= 0) return;
+    setPresetErrors((prev) => ({ ...prev, [presetKey]: "" }));
     startTransition(async () => {
-      await addServiceAction({
-        propertyId: property.id,
-        title,
-        price,
-        defaultIntervalWeeks: Number(presetIntervals[presetKey]),
-        scheduledDate: presetDates[presetKey],
-      });
-      setPresetOpen((prev) => ({ ...prev, [presetKey]: false }));
+      try {
+        await addServiceAction({
+          propertyId: property.id,
+          title,
+          price,
+          defaultIntervalWeeks: Number(presetIntervals[presetKey]),
+          scheduledDate: presetDates[presetKey],
+        });
+        setPresetOpen((prev) => ({ ...prev, [presetKey]: false }));
+      } catch (err) {
+        setPresetErrors((prev) => ({
+          ...prev,
+          [presetKey]: err instanceof Error ? err.message : "Failed to add service",
+        }));
+      }
     });
   }
 
@@ -100,16 +109,20 @@ export function PropertyPanel({ property }: { property: PropertyPanelData }) {
     }
     setServiceError(null);
     startTransition(async () => {
-      await addServiceAction({
-        propertyId: property.id,
-        title: serviceTitle,
-        price: Number(servicePrice),
-        defaultIntervalWeeks: Number(serviceInterval),
-        scheduledDate: serviceDate,
-      });
-      setServiceTitle("");
-      setServicePrice("");
-      flash(setServiceAdded);
+      try {
+        await addServiceAction({
+          propertyId: property.id,
+          title: serviceTitle,
+          price: Number(servicePrice),
+          defaultIntervalWeeks: Number(serviceInterval),
+          scheduledDate: serviceDate,
+        });
+        setServiceTitle("");
+        setServicePrice("");
+        flash(setServiceAdded);
+      } catch (err) {
+        setServiceError(err instanceof Error ? err.message : "Failed to add service");
+      }
     });
   }
 
@@ -288,6 +301,9 @@ export function PropertyPanel({ property }: { property: PropertyPanelData }) {
                           Add
                         </Button>
                       </div>
+                      {presetErrors[preset.key] && (
+                        <p className="text-xs text-destructive">{presetErrors[preset.key]}</p>
+                      )}
                     </div>
                   )}
                 </div>
