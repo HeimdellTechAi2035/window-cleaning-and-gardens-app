@@ -222,13 +222,22 @@ export async function addHazardAction(params: {
   label: string;
   severity: HazardSeverity;
 }) {
-  await requireSession();
+  const session = await requireSession();
+  await prisma.property.findFirstOrThrow({
+    where: { id: params.propertyId, customer: { organizationId: session.user.organizationId } },
+  });
   await prisma.propertyHazard.create({ data: params });
   revalidatePath("/customers");
 }
 
 export async function removeHazardAction(hazardId: string) {
-  await requireSession();
+  const session = await requireSession();
+  await prisma.propertyHazard.findFirstOrThrow({
+    where: {
+      id: hazardId,
+      property: { customer: { organizationId: session.user.organizationId } },
+    },
+  });
   await prisma.propertyHazard.delete({ where: { id: hazardId } });
   revalidatePath("/customers");
 }
@@ -295,9 +304,12 @@ export async function addServiceAction(params: {
 }
 
 export async function updateAccessNotesAction(params: { propertyId: string; accessNotes: string }) {
-  await requireSession();
+  const session = await requireSession();
   await prisma.property.update({
-    where: { id: params.propertyId },
+    where: {
+      id: params.propertyId,
+      customer: { organizationId: session.user.organizationId },
+    },
     data: { accessNotes: params.accessNotes },
   });
   revalidatePath("/customers");

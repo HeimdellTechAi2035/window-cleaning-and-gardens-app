@@ -11,7 +11,7 @@
 const CACHE_NAME = "roundflow-static-v1";
 const STATIC_CACHE_PATTERNS = [/^\/_next\/static\//, /^\/icons\//, /^\/apple-touch-icon\.png$/, /^\/favicon\.png$/];
 
-self.addEventListener("install", (event) => {
+self.addEventListener("install", () => {
   self.skipWaiting();
 });
 

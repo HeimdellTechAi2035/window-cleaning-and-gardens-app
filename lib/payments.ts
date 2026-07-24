@@ -61,7 +61,7 @@ export async function triggerPostJobPayment(job: JobWithRelations) {
 
   if (customer.preferredPaymentMethod === "CARD" && customer.stripeCustomerId) {
     try {
-      let paymentMethodId = customer.stripeDefaultPaymentMethodId;
+      const paymentMethodId = customer.stripeDefaultPaymentMethodId;
 
       if (paymentMethodId) {
         const intent = await chargeSavedCard({
