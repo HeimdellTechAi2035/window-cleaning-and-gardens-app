@@ -38,6 +38,14 @@ const customerSchema = z.object({
 });
 
 export async function createCustomerAction(formData: FormData) {
+  try {
+    return await createCustomerActionInner(formData);
+  } catch (e) {
+    throw new Error(`DEBUG: ${e instanceof Error ? `${e.message}\n${e.stack}` : String(e)}`);
+  }
+}
+
+async function createCustomerActionInner(formData: FormData) {
   const session = await requireSession();
 
   const rawServices = formData.get("services");
