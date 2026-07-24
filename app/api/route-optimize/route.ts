@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { optimizeRouteWithMapbox } from "@/lib/route-optimizer";
+import { optimizeRouteNearestNeighbour } from "@/lib/route-optimizer";
 import { startOfDay, endOfDay } from "@/lib/utils";
 
 export async function POST(request: Request) {
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ stops: [], totalDistanceMeters: 0, totalDurationSeconds: 0 });
   }
 
-  const result = await optimizeRouteWithMapbox(depot, stops);
+  const result = optimizeRouteNearestNeighbour(depot, stops);
 
   await prisma.$transaction(
     result.stops.map((stop) =>

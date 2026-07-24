@@ -88,7 +88,6 @@ model Organization {
   gocardlessAccessToken String?
   gocardlessEnv         String  @default("sandbox")
   stripeAccountId       String?
-  mapboxToken           String?
   twilioFromNumber      String?
   resendFromEmail       String?
 

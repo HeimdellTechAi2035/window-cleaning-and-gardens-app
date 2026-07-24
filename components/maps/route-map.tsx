@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import Map, { Source, Layer, NavigationControl } from "react-map-gl";
-import "mapbox-gl/dist/mapbox-gl.css";
+import { useEffect, useMemo, useState } from "react";
+import { MapContainer, TileLayer, Polyline, ZoomControl, useMap } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
 import { RefreshCw, Loader2, Navigation2 } from "lucide-react";
 import { MapMarker } from "./map-marker";
 import { Button } from "@/components/ui/button";
@@ -20,31 +20,50 @@ export interface RouteStopData {
   customerName: string;
 }
 
+const TILE_URL = {
+  light: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+  dark: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+};
+const TILE_ATTRIBUTION =
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
+
+function FitBounds({ stops }: { stops: RouteStopData[] }) {
+  const map = useMap();
+  useEffect(() => {
+    if (stops.length === 0) return;
+    if (stops.length === 1) {
+      map.setView([stops[0].latitude, stops[0].longitude], 13);
+      return;
+    }
+    map.fitBounds(
+      stops.map((s) => [s.latitude, s.longitude]),
+      { padding: [40, 40] }
+    );
+  }, [map, stops]);
+  return null;
+}
+
 export function RouteMap({ date, stops }: { date: string; stops: RouteStopData[] }) {
   const { theme } = useTheme();
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [selected, setSelected] = useState<RouteStopData | null>(null);
-  const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+  const [mounted, setMounted] = useState(false);
 
-  const center = useMemo(() => {
-    if (stops.length === 0) return { latitude: 53.7632, longitude: -2.7031 }; // Preston, UK fallback
-    return {
-      latitude: stops.reduce((s, p) => s + p.latitude, 0) / stops.length,
-      longitude: stops.reduce((s, p) => s + p.longitude, 0) / stops.length,
-    };
+  useEffect(() => setMounted(true), []);
+
+  const center = useMemo((): [number, number] => {
+    if (stops.length === 0) return [53.7632, -2.7031]; // Preston, UK fallback
+    return [
+      stops.reduce((s, p) => s + p.latitude, 0) / stops.length,
+      stops.reduce((s, p) => s + p.longitude, 0) / stops.length,
+    ];
   }, [stops]);
 
-  const lineGeoJson = useMemo(
-    () => ({
-      type: "Feature" as const,
-      geometry: {
-        type: "LineString" as const,
-        coordinates: [...stops]
-          .sort((a, b) => a.sequenceOrder - b.sequenceOrder)
-          .map((s) => [s.longitude, s.latitude]),
-      },
-      properties: {},
-    }),
+  const linePositions = useMemo(
+    () =>
+      [...stops]
+        .sort((a, b) => a.sequenceOrder - b.sequenceOrder)
+        .map((s): [number, number] => [s.latitude, s.longitude]),
     [stops]
   );
 
@@ -62,49 +81,34 @@ export function RouteMap({ date, stops }: { date: string; stops: RouteStopData[]
     }
   }
 
-  if (!token) {
+  if (!mounted) {
     return (
-      <div className="flex h-[360px] sm:h-[440px] lg:h-[520px] items-center justify-center rounded-xl border border-dashed border-border text-sm text-muted-foreground">
-        Set NEXT_PUBLIC_MAPBOX_TOKEN to enable the route map.
+      <div className="flex h-[400px] sm:h-[480px] lg:h-[560px] items-center justify-center rounded-xl border border-border">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   return (
     <div className="relative h-[400px] sm:h-[480px] lg:h-[560px] overflow-hidden rounded-xl border border-border">
-      <Map
-        mapboxAccessToken={token}
-        initialViewState={{ ...center, zoom: 11 }}
-        style={{ width: "100%", height: "100%" }}
-        mapStyle={
-          theme === "dark"
-            ? "mapbox://styles/mapbox/dark-v11"
-            : "mapbox://styles/mapbox/light-v11"
-        }
-      >
-        <NavigationControl position="top-right" />
-        {stops.length > 1 && (
-          <Source id="route" type="geojson" data={lineGeoJson}>
-            <Layer
-              id="route-line"
-              type="line"
-              paint={{ "line-color": "#6366f1", "line-width": 3, "line-dasharray": [1, 1.5] }}
-            />
-          </Source>
-        )}
+      <MapContainer center={center} zoom={11} zoomControl={false} style={{ width: "100%", height: "100%" }}>
+        <TileLayer url={theme === "dark" ? TILE_URL.dark : TILE_URL.light} attribution={TILE_ATTRIBUTION} />
+        <ZoomControl position="topright" />
+        <FitBounds stops={stops} />
+        {stops.length > 1 && <Polyline positions={linePositions} pathOptions={{ color: "#6366f1", weight: 3, dashArray: "1 6" }} />}
         {stops.map((stop) => (
-          <div key={stop.id} onClick={() => setSelected(stop)}>
-            <MapMarker
-              latitude={stop.latitude}
-              longitude={stop.longitude}
-              sequenceOrder={stop.sequenceOrder}
-              status={stop.status}
-            />
-          </div>
+          <MapMarker
+            key={stop.id}
+            latitude={stop.latitude}
+            longitude={stop.longitude}
+            sequenceOrder={stop.sequenceOrder}
+            status={stop.status}
+            onClick={() => setSelected(stop)}
+          />
         ))}
-      </Map>
+      </MapContainer>
 
-      <div className="absolute left-3 top-3 flex gap-2">
+      <div className="absolute left-3 top-3 z-[1000] flex gap-2">
         <Button size="sm" onClick={handleOptimize} disabled={isOptimizing} className="shadow-lg">
           {isOptimizing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
           Optimize route
@@ -112,7 +116,7 @@ export function RouteMap({ date, stops }: { date: string; stops: RouteStopData[]
       </div>
 
       {selected && (
-        <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between rounded-lg border border-border bg-card p-3 shadow-lg sm:right-auto sm:w-80">
+        <div className="absolute bottom-3 left-3 right-3 z-[1000] flex items-center justify-between rounded-lg border border-border bg-card p-3 shadow-lg sm:right-auto sm:w-80">
           <div>
             <p className="text-sm font-semibold">{selected.serviceTitle}</p>
             <p className="text-xs text-muted-foreground">{selected.customerName}</p>

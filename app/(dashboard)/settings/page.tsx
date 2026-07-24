@@ -55,7 +55,7 @@ export default async function SettingsPage() {
         <CardHeader>
           <CardTitle>Integrations</CardTitle>
           <CardDescription>
-            API credentials for GoCardless, Stripe, Mapbox, and notifications. Stored per-organization.
+            API credentials for GoCardless, Stripe, and notifications. Stored per-organization.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -89,16 +89,6 @@ export default async function SettingsPage() {
                 id="stripeAccountId"
                 name="stripeAccountId"
                 placeholder={organization.stripeAccountId ?? "acct_..."}
-                disabled={!isAdmin}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="mapboxToken">Mapbox access token</Label>
-              <Input
-                id="mapboxToken"
-                name="mapboxToken"
-                type="password"
-                placeholder={organization.mapboxToken ? "••••••••••••" : "pk.eyJ..."}
                 disabled={!isAdmin}
               />
             </div>

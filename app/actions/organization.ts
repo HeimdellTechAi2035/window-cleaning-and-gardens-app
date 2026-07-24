@@ -31,7 +31,6 @@ export async function updateIntegrationSettingsAction(formData: FormData) {
   const gocardlessAccessToken = formData.get("gocardlessAccessToken");
   const gocardlessEnv = formData.get("gocardlessEnv");
   const stripeAccountId = formData.get("stripeAccountId");
-  const mapboxToken = formData.get("mapboxToken");
   const twilioFromNumber = formData.get("twilioFromNumber");
   const resendFromEmail = formData.get("resendFromEmail");
 
@@ -41,7 +40,6 @@ export async function updateIntegrationSettingsAction(formData: FormData) {
       ...(gocardlessAccessToken ? { gocardlessAccessToken: String(gocardlessAccessToken) } : {}),
       ...(gocardlessEnv ? { gocardlessEnv: String(gocardlessEnv) } : {}),
       ...(stripeAccountId ? { stripeAccountId: String(stripeAccountId) } : {}),
-      ...(mapboxToken ? { mapboxToken: String(mapboxToken) } : {}),
       ...(twilioFromNumber ? { twilioFromNumber: String(twilioFromNumber) } : {}),
       ...(resendFromEmail ? { resendFromEmail: String(resendFromEmail) } : {}),
     },

@@ -15,62 +15,8 @@ export interface OptimizeRouteResult {
 }
 
 /**
- * Calls the Mapbox Optimization API (v1, /optimized-trips) to compute the
- * minimum-distance ordering for a day's stops, starting from the depot/
- * first stop and not requiring a round trip back to start.
- */
-export async function optimizeRouteWithMapbox(
-  depot: RouteStop,
-  stops: RouteStop[]
-): Promise<OptimizeRouteResult> {
-  const token = process.env.MAPBOX_ACCESS_TOKEN;
-  if (!token) throw new Error("MAPBOX_ACCESS_TOKEN is not configured");
-
-  const allPoints = [depot, ...stops];
-  if (allPoints.length < 2) {
-    return { stops: [], totalDistanceMeters: 0, totalDurationSeconds: 0 };
-  }
-  if (allPoints.length > 12) {
-    return optimizeRouteNearestNeighbour(depot, stops);
-  }
-
-  const coordinates = allPoints.map((p) => `${p.longitude},${p.latitude}`).join(";");
-  const url = `https://api.mapbox.com/optimized-trips/v1/mapbox/driving/${coordinates}?source=first&roundtrip=false&access_token=${token}`;
-
-  const res = await fetch(url);
-  if (!res.ok) {
-    return optimizeRouteNearestNeighbour(depot, stops);
-  }
-
-  const data = (await res.json()) as {
-    trips?: { distance: number; duration: number }[];
-    waypoints?: { waypoint_index: number }[];
-  };
-
-  if (!data.trips?.length || !data.waypoints) {
-    return optimizeRouteNearestNeighbour(depot, stops);
-  }
-
-  const orderedStops = data.waypoints
-    .map((wp, originalIndex) => ({ wp, originalIndex }))
-    .filter(({ originalIndex }) => originalIndex !== 0) // drop depot
-    .sort((a, b) => a.wp.waypoint_index - b.wp.waypoint_index)
-    .map(({ originalIndex }, sequenceOrder) => ({
-      ...allPoints[originalIndex],
-      sequenceOrder,
-    }));
-
-  return {
-    stops: orderedStops,
-    totalDistanceMeters: data.trips[0].distance,
-    totalDurationSeconds: data.trips[0].duration,
-  };
-}
-
-/**
- * Fallback / small-route optimizer using a simple nearest-neighbour
- * greedy heuristic on the haversine distance. Used when the Mapbox API
- * is unavailable or the stop count exceeds its coordinate limit.
+ * Route optimizer using a simple nearest-neighbour greedy heuristic on
+ * haversine distance. No external routing API or API key required.
  */
 export function optimizeRouteNearestNeighbour(
   depot: RouteStop,
@@ -129,21 +75,27 @@ export function wazeNavigationUrl(destination: { latitude: number; longitude: nu
   return `https://waze.com/ul?ll=${destination.latitude},${destination.longitude}&navigate=yes`;
 }
 
+/**
+ * Geocodes a UK address via OpenStreetMap's Nominatim service (free, no
+ * API key). Nominatim's usage policy asks for a descriptive User-Agent
+ * and at most ~1 request/second — callers doing bulk geocoding should
+ * space out requests themselves.
+ */
 export async function geocodeAddress(address: string): Promise<{ latitude: number; longitude: number } | null> {
-  const token = process.env.MAPBOX_ACCESS_TOKEN;
-  if (!token) throw new Error("MAPBOX_ACCESS_TOKEN is not configured");
-
-  const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(
+  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=gb&q=${encodeURIComponent(
     address
-  )}.json?country=GB&limit=1&access_token=${token}`;
+  )}`;
 
-  const res = await fetch(url);
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent": `RoundFlow/1.0 (${process.env.NEXT_PUBLIC_APP_URL ?? "https://roundflow.app"})`,
+    },
+  });
   if (!res.ok) return null;
 
-  const data = (await res.json()) as { features?: { center: [number, number] }[] };
-  const feature = data.features?.[0];
+  const data = (await res.json()) as { lat: string; lon: string }[];
+  const feature = data[0];
   if (!feature) return null;
 
-  const [longitude, latitude] = feature.center;
-  return { latitude, longitude };
+  return { latitude: parseFloat(feature.lat), longitude: parseFloat(feature.lon) };
 }
