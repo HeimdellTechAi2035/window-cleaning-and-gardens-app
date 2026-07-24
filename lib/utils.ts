@@ -65,3 +65,15 @@ export function generateInvoiceNumber() {
   const rand = Math.floor(1000 + Math.random() * 9000);
   return `INV-${y}-${rand}`;
 }
+
+const ROUND_COLOR_PALETTE = ["#6366f1", "#0ea5e9", "#22c55e", "#f59e0b", "#ec4899", "#8b5cf6"];
+
+/** Deterministic color per area name, so the same area always gets the same round color. */
+export function colorForArea(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = (hash << 5) - hash + name.charCodeAt(i);
+    hash |= 0;
+  }
+  return ROUND_COLOR_PALETTE[Math.abs(hash) % ROUND_COLOR_PALETTE.length];
+}

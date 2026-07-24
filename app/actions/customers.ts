@@ -5,6 +5,7 @@ import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { geocodeAddress } from "@/lib/route-optimizer";
+import { colorForArea } from "@/lib/utils";
 import type { PaymentMethod, HazardSeverity } from "@prisma/client";
 
 async function requireSession() {
@@ -22,11 +23,22 @@ const customerSchema = z.object({
   addressLine1: z.string().min(1),
   city: z.string().min(1),
   postcode: z.string().min(1),
+  services: z
+    .array(
+      z.object({
+        title: z.string().min(1),
+        price: z.number().positive(),
+        defaultIntervalWeeks: z.number().int().min(0),
+      })
+    )
+    .optional()
+    .default([]),
 });
 
 export async function createCustomerAction(formData: FormData) {
   const session = await requireSession();
 
+  const rawServices = formData.get("services");
   const parsed = customerSchema.parse({
     firstName: formData.get("firstName"),
     lastName: formData.get("lastName"),
@@ -36,6 +48,7 @@ export async function createCustomerAction(formData: FormData) {
     addressLine1: formData.get("addressLine1"),
     city: formData.get("city"),
     postcode: formData.get("postcode"),
+    services: rawServices ? JSON.parse(rawServices as string) : [],
   });
 
   let coords: { latitude: number; longitude: number } | null = null;
@@ -46,6 +59,23 @@ export async function createCustomerAction(formData: FormData) {
   } catch {
     coords = null;
   }
+
+  // Auto-assign to a round by area: every property in the same city shares
+  // one round, created on first use, so nobody has to manually build rounds
+  // or remember to add new customers to them.
+  const areaName = parsed.city.trim();
+  const round = await prisma.round.upsert({
+    where: {
+      organizationId_name: { organizationId: session.user.organizationId, name: areaName },
+    },
+    update: {},
+    create: {
+      organizationId: session.user.organizationId,
+      name: areaName,
+      description: `Auto-generated round for ${areaName}`,
+      colorCode: colorForArea(areaName),
+    },
+  });
 
   const customer = await prisma.customer.create({
     data: {
@@ -62,13 +92,41 @@ export async function createCustomerAction(formData: FormData) {
           postcode: parsed.postcode,
           latitude: coords?.latitude,
           longitude: coords?.longitude,
+          services: {
+            create: parsed.services.map((s) => ({
+              title: s.title,
+              price: s.price,
+              defaultIntervalWeeks: s.defaultIntervalWeeks,
+            })),
+          },
         },
       },
     },
+    include: {
+      properties: { include: { services: true } },
+    },
   });
 
+  const property = customer.properties[0];
+  if (property && property.services.length > 0) {
+    await prisma.job.createMany({
+      data: property.services.map((service) => ({
+        organizationId: session.user.organizationId,
+        roundId: round.id,
+        propertyId: property.id,
+        serviceId: service.id,
+        scheduledDate: new Date(),
+        priceCharged: service.price,
+        intervalWeeksAtCreation: service.defaultIntervalWeeks,
+      })),
+    });
+  }
+
   revalidatePath("/customers");
-  return { customerId: customer.id };
+  revalidatePath("/rounds");
+  revalidatePath("/planner");
+  revalidatePath("/dashboard");
+  return { customerId: customer.id, areaName: round.name };
 }
 
 export async function addHazardAction(params: {

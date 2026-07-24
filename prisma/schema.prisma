@@ -294,6 +294,7 @@ model Round {
 
   jobs Job[]
 
+  @@unique([organizationId, name])
   @@index([organizationId])
   @@map("rounds")
 }
