@@ -7,8 +7,8 @@ import { PropertyPanel } from "@/components/customers/property-panel";
 import { DirectDebitInviteModal } from "@/components/payments/direct-debit-invite-modal";
 import { SendPaymentLinkModal } from "@/components/payments/send-payment-link-modal";
 import { EditCustomerDialog } from "@/components/customers/edit-customer-dialog";
-import { JobStatusBadge } from "@/components/planner/job-status-badge";
-import { formatCurrency, formatDate, initials } from "@/lib/utils";
+import { JobHistoryRow } from "@/components/planner/job-history-row";
+import { initials } from "@/lib/utils";
 import { Mail, Phone } from "lucide-react";
 
 export default async function CustomerDetailPage({
@@ -134,16 +134,16 @@ export default async function CustomerDetailPage({
             <p className="py-4 text-center text-sm text-muted-foreground">No jobs yet.</p>
           )}
           {jobs.map((job) => (
-            <div key={job.id} className="flex items-center justify-between rounded-lg border border-border px-4 py-2.5 text-sm">
-              <div>
-                <p className="font-medium">{job.service.title}</p>
-                <p className="text-xs text-muted-foreground">{formatDate(job.scheduledDate)}</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <span>{formatCurrency(Number(job.priceCharged))}</span>
-                <JobStatusBadge status={job.status} />
-              </div>
-            </div>
+            <JobHistoryRow
+              key={job.id}
+              job={{
+                id: job.id,
+                serviceTitle: job.service.title,
+                scheduledDate: job.scheduledDate.toISOString(),
+                priceCharged: Number(job.priceCharged),
+                status: job.status,
+              }}
+            />
           ))}
         </CardContent>
       </Card>

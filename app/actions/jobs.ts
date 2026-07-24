@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import * as jobsLib from "@/lib/jobs";
+import { parseDateInput } from "@/lib/utils";
 import type { SkipReason } from "@prisma/client";
 
 async function requireSession() {
@@ -75,6 +76,30 @@ export async function pushRoundAction(params: { date: string; hours: 24 | 48 }) 
 
   revalidatePath("/planner");
   return { count: updated.length };
+}
+
+export async function updateJobDateAction(params: { jobId: string; scheduledDate: string }) {
+  const session = await requireSession();
+
+  const job = await prisma.job.findFirstOrThrow({
+    where: {
+      id: params.jobId,
+      organizationId: session.user.organizationId,
+      status: { in: ["SCHEDULED", "IN_PROGRESS"] },
+    },
+    include: { property: { select: { customerId: true } } },
+  });
+
+  await prisma.job.update({
+    where: { id: job.id },
+    data: { scheduledDate: parseDateInput(params.scheduledDate) },
+  });
+
+  revalidatePath("/customers");
+  revalidatePath(`/customers/${job.property.customerId}`);
+  revalidatePath("/planner");
+  revalidatePath("/rounds");
+  revalidatePath("/dashboard");
 }
 
 export async function reorderJobsAction(order: { jobId: string; sequenceOrder: number }[]) {
