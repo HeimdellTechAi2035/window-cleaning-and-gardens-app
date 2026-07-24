@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent } from "@/components/ui/card";
@@ -41,42 +42,44 @@ export default async function RoundsPage() {
             return (
               <Card key={round.id} className="overflow-hidden">
                 <div className="h-1.5" style={{ backgroundColor: round.colorCode }} />
-                <CardContent className="flex flex-col gap-3 p-5">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="flex h-9 w-9 items-center justify-center rounded-lg"
-                        style={{ backgroundColor: `${round.colorCode}22`, color: round.colorCode }}
-                      >
-                        <Repeat className="h-4 w-4" />
+                <Link href={`/rounds/${round.id}`}>
+                  <CardContent className="flex flex-col gap-3 p-5 pb-3 transition-colors hover:bg-accent/40">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="flex h-9 w-9 items-center justify-center rounded-lg"
+                          style={{ backgroundColor: `${round.colorCode}22`, color: round.colorCode }}
+                        >
+                          <Repeat className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <p className="font-semibold">{round.name}</p>
+                          {round.description && (
+                            <p className="text-xs text-muted-foreground">{round.description}</p>
+                          )}
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-semibold">{round.name}</p>
-                        {round.description && (
-                          <p className="text-xs text-muted-foreground">{round.description}</p>
-                        )}
-                      </div>
+                      <Badge variant={round.isActive ? "success" : "secondary"}>
+                        {round.isActive ? "Active" : "Paused"}
+                      </Badge>
                     </div>
-                    <Badge variant={round.isActive ? "success" : "secondary"}>
-                      {round.isActive ? "Active" : "Paused"}
-                    </Badge>
-                  </div>
 
-                  <div className="flex items-center justify-between border-t border-border pt-3 text-sm">
-                    <span className="text-muted-foreground">{round._count.jobs} total jobs</span>
-                    <span className="font-medium">£{scheduledValue.toFixed(2)} scheduled</span>
-                  </div>
+                    <div className="flex items-center justify-between border-t border-border pt-3 text-sm">
+                      <span className="text-muted-foreground">{round._count.jobs} total jobs</span>
+                      <span className="font-medium">£{scheduledValue.toFixed(2)} scheduled</span>
+                    </div>
+                  </CardContent>
+                </Link>
 
-                  <div className="-mb-1 -mt-1 flex justify-end border-t border-border pt-1">
-                    <MergeRoundModal
-                      roundId={round.id}
-                      roundName={round.name}
-                      otherRounds={rounds
-                        .filter((r) => r.id !== round.id)
-                        .map((r) => ({ id: r.id, name: r.name }))}
-                    />
-                  </div>
-                </CardContent>
+                <div className="flex justify-end border-t border-border px-5 py-1">
+                  <MergeRoundModal
+                    roundId={round.id}
+                    roundName={round.name}
+                    otherRounds={rounds
+                      .filter((r) => r.id !== round.id)
+                      .map((r) => ({ id: r.id, name: r.name }))}
+                  />
+                </div>
               </Card>
             );
           })}
