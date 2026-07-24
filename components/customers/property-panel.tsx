@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Plus, X, Loader2 } from "lucide-react";
+import { Plus, X, Loader2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -46,6 +46,15 @@ export function PropertyPanel({ property }: { property: PropertyPanelData }) {
     Object.fromEntries(servicePresets.map((p) => [p.key, today()]))
   );
   const [serviceDate, setServiceDate] = useState(today());
+  const [notesSaved, setNotesSaved] = useState(false);
+  const [hazardError, setHazardError] = useState<string | null>(null);
+  const [serviceAdded, setServiceAdded] = useState(false);
+  const [serviceError, setServiceError] = useState<string | null>(null);
+
+  function flash(setter: (v: boolean) => void) {
+    setter(true);
+    setTimeout(() => setter(false), 1800);
+  }
 
   const existingTitles = new Set(property.services.map((s) => s.title.toLowerCase()));
   const availablePresets = servicePresets.filter((p) => !existingTitles.has(p.title.toLowerCase()));
@@ -66,11 +75,18 @@ export function PropertyPanel({ property }: { property: PropertyPanelData }) {
   }
 
   function saveNotes() {
-    startTransition(() => updateAccessNotesAction({ propertyId: property.id, accessNotes: notes }));
+    startTransition(async () => {
+      await updateAccessNotesAction({ propertyId: property.id, accessNotes: notes });
+      flash(setNotesSaved);
+    });
   }
 
   function submitHazard() {
-    if (!hazardLabel.trim()) return;
+    if (!hazardLabel.trim()) {
+      setHazardError("Enter a hazard label first");
+      return;
+    }
+    setHazardError(null);
     startTransition(async () => {
       await addHazardAction({ propertyId: property.id, label: hazardLabel, severity: hazardSeverity });
       setHazardLabel("");
@@ -78,7 +94,11 @@ export function PropertyPanel({ property }: { property: PropertyPanelData }) {
   }
 
   function submitService() {
-    if (!serviceTitle.trim() || !servicePrice) return;
+    if (!serviceTitle.trim() || !servicePrice) {
+      setServiceError("Enter a service name and price first");
+      return;
+    }
+    setServiceError(null);
     startTransition(async () => {
       await addServiceAction({
         propertyId: property.id,
@@ -89,6 +109,7 @@ export function PropertyPanel({ property }: { property: PropertyPanelData }) {
       });
       setServiceTitle("");
       setServicePrice("");
+      flash(setServiceAdded);
     });
   }
 
@@ -135,6 +156,7 @@ export function PropertyPanel({ property }: { property: PropertyPanelData }) {
             <Plus className="h-3.5 w-3.5" />
           </Button>
         </div>
+        {hazardError && <p className="text-xs text-destructive">{hazardError}</p>}
       </div>
 
       <div className="flex flex-col gap-2">
@@ -142,10 +164,17 @@ export function PropertyPanel({ property }: { property: PropertyPanelData }) {
         <Textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          onBlur={saveNotes}
           placeholder="e.g. Key safe code 4821, rear gate via side path"
           className="text-sm"
         />
+        <Button size="sm" variant="outline" onClick={saveNotes} disabled={isPending} className="self-end">
+          {isPending ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : notesSaved ? (
+            <Check className="h-3.5 w-3.5 text-success" />
+          ) : null}
+          {notesSaved ? "Saved" : "Save notes"}
+        </Button>
       </div>
 
       <div className="flex flex-col gap-2">
@@ -305,10 +334,17 @@ export function PropertyPanel({ property }: { property: PropertyPanelData }) {
               className="h-8 w-auto text-xs"
             />
             <Button size="sm" variant="outline" onClick={submitService} disabled={isPending}>
-              {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-              Add
+              {isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : serviceAdded ? (
+                <Check className="h-3.5 w-3.5 text-success" />
+              ) : (
+                <Plus className="h-3.5 w-3.5" />
+              )}
+              {serviceAdded ? "Added" : "Add"}
             </Button>
           </div>
+          {serviceError && <p className="text-xs text-destructive">{serviceError}</p>}
         </div>
       </div>
     </div>
