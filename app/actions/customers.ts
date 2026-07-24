@@ -129,6 +129,69 @@ export async function createCustomerAction(formData: FormData) {
   return { customerId: customer.id, areaName: round.name };
 }
 
+const updateCustomerSchema = z.object({
+  customerId: z.string().min(1),
+  firstName: z.string().min(1),
+  lastName: z.string().min(1),
+  email: z.string().email().optional().or(z.literal("")),
+  phone: z.string().optional(),
+  preferredPaymentMethod: z.enum(["DIRECT_DEBIT", "CARD", "CASH", "BANK_TRANSFER"]),
+  propertyId: z.string().optional(),
+  addressLine1: z.string().min(1).optional(),
+  city: z.string().min(1).optional(),
+  postcode: z.string().min(1).optional(),
+});
+
+export async function updateCustomerAction(formData: FormData) {
+  const session = await requireSession();
+
+  const parsed = updateCustomerSchema.parse({
+    customerId: formData.get("customerId"),
+    firstName: formData.get("firstName"),
+    lastName: formData.get("lastName"),
+    email: formData.get("email") || undefined,
+    phone: formData.get("phone") || undefined,
+    preferredPaymentMethod: formData.get("preferredPaymentMethod"),
+    propertyId: formData.get("propertyId") || undefined,
+    addressLine1: formData.get("addressLine1") || undefined,
+    city: formData.get("city") || undefined,
+    postcode: formData.get("postcode") || undefined,
+  });
+
+  await prisma.customer.update({
+    where: { id: parsed.customerId, organizationId: session.user.organizationId },
+    data: {
+      firstName: parsed.firstName,
+      lastName: parsed.lastName,
+      email: parsed.email || null,
+      phone: parsed.phone || null,
+      preferredPaymentMethod: parsed.preferredPaymentMethod as PaymentMethod,
+    },
+  });
+
+  if (parsed.propertyId && parsed.addressLine1 && parsed.city && parsed.postcode) {
+    let coords: { latitude: number; longitude: number } | null = null;
+    try {
+      coords = await geocodeAddress(`${parsed.addressLine1}, ${parsed.city}, ${parsed.postcode}, UK`);
+    } catch {
+      coords = null;
+    }
+
+    await prisma.property.update({
+      where: { id: parsed.propertyId, customerId: parsed.customerId },
+      data: {
+        addressLine1: parsed.addressLine1,
+        city: parsed.city,
+        postcode: parsed.postcode,
+        ...(coords ? { latitude: coords.latitude, longitude: coords.longitude } : {}),
+      },
+    });
+  }
+
+  revalidatePath(`/customers/${parsed.customerId}`);
+  revalidatePath("/customers");
+}
+
 export async function addHazardAction(params: {
   propertyId: string;
   label: string;
