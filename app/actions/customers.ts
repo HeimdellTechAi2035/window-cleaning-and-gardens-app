@@ -76,9 +76,11 @@ async function createCustomerActionInner(formData: FormData) {
 
   let coords: { latitude: number; longitude: number } | null = null;
   try {
-    coords = await geocodeAddress(
-      `${parsed.addressLine1}, ${parsed.city}, ${parsed.postcode}, UK`
-    );
+    coords = await geocodeAddress({
+      addressLine1: parsed.addressLine1,
+      city: parsed.city,
+      postcode: parsed.postcode,
+    });
   } catch {
     coords = null;
   }
@@ -202,7 +204,11 @@ export async function updateCustomerAction(formData: FormData) {
 
     let coords: { latitude: number; longitude: number } | null = null;
     try {
-      coords = await geocodeAddress(`${parsed.addressLine1}, ${parsed.city}, ${parsed.postcode}, UK`);
+      coords = await geocodeAddress({
+        addressLine1: parsed.addressLine1,
+        city: parsed.city,
+        postcode: parsed.postcode,
+      });
     } catch {
       coords = null;
     }

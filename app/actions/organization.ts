@@ -65,7 +65,11 @@ export async function backfillPropertyCoordinatesAction(): Promise<{ geocoded: n
 
   for (const property of properties) {
     try {
-      const coords = await geocodeAddress(`${property.addressLine1}, ${property.city}, ${property.postcode}, UK`);
+      const coords = await geocodeAddress({
+        addressLine1: property.addressLine1,
+        city: property.city,
+        postcode: property.postcode,
+      });
       if (coords) {
         await prisma.property.update({ where: { id: property.id }, data: coords });
         geocoded++;

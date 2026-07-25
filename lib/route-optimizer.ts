@@ -75,15 +75,9 @@ export function wazeNavigationUrl(destination: { latitude: number; longitude: nu
   return `https://waze.com/ul?ll=${destination.latitude},${destination.longitude}&navigate=yes`;
 }
 
-/**
- * Geocodes a UK address via OpenStreetMap's Nominatim service (free, no
- * API key). Nominatim's usage policy asks for a descriptive User-Agent
- * and at most ~1 request/second — callers doing bulk geocoding should
- * space out requests themselves.
- */
-export async function geocodeAddress(address: string): Promise<{ latitude: number; longitude: number } | null> {
+async function nominatimSearch(query: string): Promise<{ latitude: number; longitude: number } | null> {
   const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=gb&q=${encodeURIComponent(
-    address
+    query
   )}`;
 
   const res = await fetch(url, {
@@ -98,4 +92,36 @@ export async function geocodeAddress(address: string): Promise<{ latitude: numbe
   if (!feature) return null;
 
   return { latitude: parseFloat(feature.lat), longitude: parseFloat(feature.lon) };
+}
+
+/**
+ * Geocodes a UK address via OpenStreetMap's Nominatim service (free, no
+ * API key). Nominatim's usage policy asks for a descriptive User-Agent
+ * and at most ~1 request/second — callers doing bulk geocoding should
+ * space out requests themselves.
+ *
+ * OSM's UK coverage is excellent for postcodes and place names but
+ * incomplete at the individual-street level for many residential roads
+ * (unlike Mapbox/Google's licensed commercial address datasets), so a
+ * full address that comes back empty falls back to postcode-level, then
+ * city-level accuracy rather than placing nothing on the map at all.
+ */
+export async function geocodeAddress(address: {
+  addressLine1: string;
+  city: string;
+  postcode: string;
+}): Promise<{ latitude: number; longitude: number } | null> {
+  const fullAddress = await nominatimSearch(
+    `${address.addressLine1}, ${address.city}, ${address.postcode}, UK`
+  );
+  if (fullAddress) return fullAddress;
+
+  if (address.postcode.trim()) {
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+    const postcodeOnly = await nominatimSearch(`${address.postcode}, UK`);
+    if (postcodeOnly) return postcodeOnly;
+  }
+
+  await new Promise((resolve) => setTimeout(resolve, 1100));
+  return nominatimSearch(`${address.city}, UK`);
 }
