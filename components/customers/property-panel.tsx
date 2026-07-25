@@ -50,7 +50,9 @@ export function PropertyPanel({ property }: { property: PropertyPanelData }) {
   const [hazardError, setHazardError] = useState<string | null>(null);
   const [serviceAdded, setServiceAdded] = useState(false);
   const [serviceError, setServiceError] = useState<string | null>(null);
+  const [serviceConflict, setServiceConflict] = useState(false);
   const [presetErrors, setPresetErrors] = useState<Record<string, string>>({});
+  const [presetConflicts, setPresetConflicts] = useState<Record<string, boolean>>({});
 
   function flash(setter: (v: boolean) => void) {
     setter(true);
@@ -60,22 +62,27 @@ export function PropertyPanel({ property }: { property: PropertyPanelData }) {
   const existingTitles = new Set(property.services.map((s) => s.title.toLowerCase()));
   const availablePresets = servicePresets.filter((p) => !existingTitles.has(p.title.toLowerCase()));
 
-  function submitPreset(presetKey: string, title: string) {
+  function submitPreset(presetKey: string, title: string, overrideConflict?: boolean) {
     const price = Number(presetPrices[presetKey]);
     if (!price || price <= 0) return;
     setPresetErrors((prev) => ({ ...prev, [presetKey]: "" }));
     startTransition(async () => {
-      const result = await addServiceAction({
-        propertyId: property.id,
-        title,
-        price,
-        defaultIntervalWeeks: Number(presetIntervals[presetKey]),
-        scheduledDate: presetDates[presetKey],
-      });
+      const result = await addServiceAction(
+        {
+          propertyId: property.id,
+          title,
+          price,
+          defaultIntervalWeeks: Number(presetIntervals[presetKey]),
+          scheduledDate: presetDates[presetKey],
+        },
+        { overrideConflict }
+      );
       if ("error" in result) {
         setPresetErrors((prev) => ({ ...prev, [presetKey]: result.error }));
+        setPresetConflicts((prev) => ({ ...prev, [presetKey]: !!result.conflict }));
         return;
       }
+      setPresetConflicts((prev) => ({ ...prev, [presetKey]: false }));
       setPresetOpen((prev) => ({ ...prev, [presetKey]: false }));
     });
   }
@@ -99,24 +106,29 @@ export function PropertyPanel({ property }: { property: PropertyPanelData }) {
     });
   }
 
-  function submitService() {
+  function submitService(overrideConflict?: boolean) {
     if (!serviceTitle.trim() || !servicePrice) {
       setServiceError("Enter a service name and price first");
       return;
     }
     setServiceError(null);
     startTransition(async () => {
-      const result = await addServiceAction({
-        propertyId: property.id,
-        title: serviceTitle,
-        price: Number(servicePrice),
-        defaultIntervalWeeks: Number(serviceInterval),
-        scheduledDate: serviceDate,
-      });
+      const result = await addServiceAction(
+        {
+          propertyId: property.id,
+          title: serviceTitle,
+          price: Number(servicePrice),
+          defaultIntervalWeeks: Number(serviceInterval),
+          scheduledDate: serviceDate,
+        },
+        { overrideConflict }
+      );
       if ("error" in result) {
         setServiceError(result.error);
+        setServiceConflict(!!result.conflict);
         return;
       }
+      setServiceConflict(false);
       setServiceTitle("");
       setServicePrice("");
       flash(setServiceAdded);
@@ -299,7 +311,20 @@ export function PropertyPanel({ property }: { property: PropertyPanelData }) {
                         </Button>
                       </div>
                       {presetErrors[preset.key] && (
-                        <p className="text-xs text-destructive">{presetErrors[preset.key]}</p>
+                        <div className="flex flex-col gap-1.5">
+                          <p className="text-xs text-destructive">{presetErrors[preset.key]}</p>
+                          {presetConflicts[preset.key] && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 self-start px-2 text-xs"
+                              onClick={() => submitPreset(preset.key, preset.title, true)}
+                              disabled={isPending}
+                            >
+                              Add to today&apos;s round anyway
+                            </Button>
+                          )}
+                        </div>
                       )}
                     </div>
                   )}
@@ -346,7 +371,7 @@ export function PropertyPanel({ property }: { property: PropertyPanelData }) {
               onChange={(e) => setServiceDate(e.target.value)}
               className="h-8 w-auto text-xs"
             />
-            <Button size="sm" variant="outline" onClick={submitService} disabled={isPending}>
+            <Button size="sm" variant="outline" onClick={() => submitService()} disabled={isPending}>
               {isPending ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : serviceAdded ? (
@@ -357,7 +382,22 @@ export function PropertyPanel({ property }: { property: PropertyPanelData }) {
               {serviceAdded ? "Added" : "Add"}
             </Button>
           </div>
-          {serviceError && <p className="text-xs text-destructive">{serviceError}</p>}
+          {serviceError && (
+            <div className="flex flex-col gap-1.5">
+              <p className="text-xs text-destructive">{serviceError}</p>
+              {serviceConflict && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 self-start px-2 text-xs"
+                  onClick={() => submitService(true)}
+                  disabled={isPending}
+                >
+                  Add to today&apos;s round anyway
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

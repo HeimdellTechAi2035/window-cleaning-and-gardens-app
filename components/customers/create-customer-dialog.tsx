@@ -41,10 +41,29 @@ export function CreateCustomerDialog() {
   const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [isPending, startTransition] = useTransition();
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [conflictFormData, setConflictFormData] = useState<FormData | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
   function toggleService(key: string) {
     setEnabledServices((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  function submit(formData: FormData, overrideConflict?: boolean) {
+    setSubmitError(null);
+    startTransition(async () => {
+      const result = await createCustomerAction(formData, { overrideConflict });
+      if ("error" in result) {
+        setSubmitError(result.error);
+        setConflictFormData(result.conflict ? formData : null);
+        return;
+      }
+      setOpen(false);
+      formRef.current?.reset();
+      setEnabledServices({});
+      setCity("");
+      setConflictFormData(null);
+      router.push(`/customers/${result.customerId}`);
+    });
   }
 
   function handleSubmit(formData: FormData) {
@@ -61,19 +80,11 @@ export function CreateCustomerDialog() {
       .filter((s) => s.price > 0);
     formData.set("services", JSON.stringify(services));
 
-    setSubmitError(null);
-    startTransition(async () => {
-      const result = await createCustomerAction(formData);
-      if ("error" in result) {
-        setSubmitError(result.error);
-        return;
-      }
-      setOpen(false);
-      formRef.current?.reset();
-      setEnabledServices({});
-      setCity("");
-      router.push(`/customers/${result.customerId}`);
-    });
+    submit(formData);
+  }
+
+  function handleAddAnyway() {
+    if (conflictFormData) submit(conflictFormData, true);
   }
 
   return (
@@ -254,7 +265,24 @@ export function CreateCustomerDialog() {
             )}
           </div>
 
-          {submitError && <p className="text-sm text-destructive">{submitError}</p>}
+          {submitError && (
+            <div className="flex flex-col gap-2">
+              <p className="text-sm text-destructive">{submitError}</p>
+              {conflictFormData && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="self-start"
+                  onClick={handleAddAnyway}
+                  disabled={isPending}
+                >
+                  {isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  Add to today&apos;s round anyway
+                </Button>
+              )}
+            </div>
+          )}
 
           <DialogFooter>
             <DialogClose asChild>

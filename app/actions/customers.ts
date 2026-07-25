@@ -48,16 +48,20 @@ const customerSchema = z.object({
 // rejection) — so validation failures are returned as a typed result
 // instead of thrown, and the caller checks for `.error`.
 export async function createCustomerAction(
-  formData: FormData
-): Promise<{ customerId: string; areaName: string } | { error: string }> {
+  formData: FormData,
+  options?: { overrideConflict?: boolean }
+): Promise<{ customerId: string; areaName: string } | { error: string; conflict?: true }> {
   try {
-    return await createCustomerActionInner(formData);
+    return await createCustomerActionInner(formData, options);
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Failed to add customer" };
   }
 }
 
-async function createCustomerActionInner(formData: FormData) {
+async function createCustomerActionInner(
+  formData: FormData,
+  options?: { overrideConflict?: boolean }
+): Promise<{ customerId: string; areaName: string } | { error: string; conflict: true }> {
   const session = await requireSession();
 
   const rawServices = formData.get("services");
@@ -90,6 +94,13 @@ async function createCustomerActionInner(formData: FormData) {
   // or remember to add new customers to them.
   const round = await upsertAreaRound(session.user.organizationId, parsed.city);
 
+  // The property's permanent home stays `round` (its own area) so future
+  // recurring visits schedule normally — but if the admin explicitly
+  // overrides a same-day conflict (e.g. a walk-up customer while already
+  // out on a different round's round), this first job joins whichever
+  // round is already active that day instead, so today stays one round.
+  let jobRoundId = round.id;
+
   if (parsed.services.length > 0) {
     const conflict = await findConflictingRound({
       organizationId: session.user.organizationId,
@@ -97,9 +108,13 @@ async function createCustomerActionInner(formData: FormData) {
       roundId: round.id,
     });
     if (conflict) {
-      throw new Error(
-        `Can't schedule "${round.name}" on that date — "${conflict.name}" is already booked that day. Pick a different date, or reschedule ${conflict.name} first.`
-      );
+      if (!options?.overrideConflict) {
+        return {
+          error: `Can't schedule "${round.name}" on that date — "${conflict.name}" is already booked that day. Pick a different date, add it to today's round anyway, or reschedule ${conflict.name} first.`,
+          conflict: true,
+        };
+      }
+      jobRoundId = conflict.id;
     }
   }
 
@@ -139,7 +154,7 @@ async function createCustomerActionInner(formData: FormData) {
     await prisma.job.createMany({
       data: property.services.map((service) => ({
         organizationId: session.user.organizationId,
-        roundId: round.id,
+        roundId: jobRoundId,
         propertyId: property.id,
         serviceId: service.id,
         scheduledDate: parseDateInput(parsed.startDate),
@@ -311,27 +326,33 @@ export async function removeHazardAction(hazardId: string) {
   revalidatePath("/customers");
 }
 
-export async function addServiceAction(params: {
-  propertyId: string;
-  title: string;
-  price: number;
-  defaultIntervalWeeks: number;
-  scheduledDate: string;
-}): Promise<{ ok: true } | { error: string }> {
+export async function addServiceAction(
+  params: {
+    propertyId: string;
+    title: string;
+    price: number;
+    defaultIntervalWeeks: number;
+    scheduledDate: string;
+  },
+  options?: { overrideConflict?: boolean }
+): Promise<{ ok: true } | { error: string; conflict?: true }> {
   try {
-    return await addServiceActionInner(params);
+    return await addServiceActionInner(params, options);
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Failed to add service" };
   }
 }
 
-async function addServiceActionInner(params: {
-  propertyId: string;
-  title: string;
-  price: number;
-  defaultIntervalWeeks: number;
-  scheduledDate: string;
-}): Promise<{ ok: true }> {
+async function addServiceActionInner(
+  params: {
+    propertyId: string;
+    title: string;
+    price: number;
+    defaultIntervalWeeks: number;
+    scheduledDate: string;
+  },
+  options?: { overrideConflict?: boolean }
+): Promise<{ ok: true } | { error: string; conflict: true }> {
   const session = await requireSession();
 
   const property = await prisma.property.findFirstOrThrow({
@@ -348,15 +369,24 @@ async function addServiceActionInner(params: {
     await prisma.property.update({ where: { id: property.id }, data: { roundId: round.id } });
   }
 
+  // See createCustomerAction: the property's own round is untouched, but
+  // an explicit override folds this one-off job into whichever round is
+  // already active that day (e.g. a walk-up job added while already out).
+  let jobRoundId = round.id;
+
   const conflict = await findConflictingRound({
     organizationId: session.user.organizationId,
     date: parseDateInput(params.scheduledDate),
     roundId: round.id,
   });
   if (conflict) {
-    throw new Error(
-      `Can't schedule "${round.name}" on that date — "${conflict.name}" is already booked that day. Pick a different date, or reschedule ${conflict.name} first.`
-    );
+    if (!options?.overrideConflict) {
+      return {
+        error: `Can't schedule "${round.name}" on that date — "${conflict.name}" is already booked that day. Pick a different date, add it to today's round anyway, or reschedule ${conflict.name} first.`,
+        conflict: true,
+      };
+    }
+    jobRoundId = conflict.id;
   }
 
   const service = await prisma.service.create({
@@ -371,7 +401,7 @@ async function addServiceActionInner(params: {
   await prisma.job.create({
     data: {
       organizationId: session.user.organizationId,
-      roundId: round.id,
+      roundId: jobRoundId,
       propertyId: property.id,
       serviceId: service.id,
       scheduledDate: parseDateInput(params.scheduledDate),
