@@ -25,6 +25,38 @@ function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
+function loadImage(dataUrl: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = dataUrl;
+  });
+}
+
+// A phone camera photo is routinely 3-10MB — base64-encoded that comfortably
+// exceeds the server action's payload limit and crashes the request with an
+// opaque "server-side exception". Downscaling and re-compressing to a
+// reasonable resolution/quality client-side keeps it a few hundred KB, well
+// within limits, with no visible quality loss for a before/after reference photo.
+async function compressImageToDataUrl(file: File, maxDimension = 1600, quality = 0.75): Promise<string> {
+  const rawDataUrl = await fileToDataUrl(file);
+  const img = await loadImage(rawDataUrl);
+
+  const scale = Math.min(1, maxDimension / Math.max(img.width, img.height));
+  const width = Math.round(img.width * scale);
+  const height = Math.round(img.height * scale);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return rawDataUrl;
+
+  ctx.drawImage(img, 0, 0, width, height);
+  return canvas.toDataURL("image/jpeg", quality);
+}
+
 export function CompleteJobDialog({
   jobId,
   serviceTitle,
@@ -48,7 +80,7 @@ export function CompleteJobDialog({
   async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const dataUrl = await fileToDataUrl(file);
+    const dataUrl = await compressImageToDataUrl(file);
     setPhotoPreview(dataUrl);
   }
 
