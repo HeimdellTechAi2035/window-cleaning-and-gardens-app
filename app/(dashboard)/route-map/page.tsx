@@ -61,7 +61,8 @@ export default async function RouteMapPage({
       longitude: property.longitude as number,
       sequenceOrder: null,
       status: "SCHEDULED" as const,
-      serviceTitle: `${property.addressLine1}, ${property.city}`,
+      address: `${property.addressLine1}, ${property.city}`,
+      serviceTitle: null,
       customerName: `${property.customer.firstName} ${property.customer.lastName}`,
     }));
 
@@ -91,6 +92,7 @@ export default async function RouteMapPage({
     longitude: job.property.longitude as number,
     sequenceOrder: job.sequenceOrder,
     status: job.status,
+    address: `${job.property.addressLine1}, ${job.property.city}`,
     serviceTitle: job.service.title,
     customerName: `${job.property.customer.firstName} ${job.property.customer.lastName}`,
   }));

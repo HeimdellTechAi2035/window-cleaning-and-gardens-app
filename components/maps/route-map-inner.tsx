@@ -3,11 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { MapContainer, TileLayer, Polyline, ZoomControl, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import { RefreshCw, Loader2, Navigation2 } from "lucide-react";
+import { RefreshCw, Loader2 } from "lucide-react";
 import { MapMarker } from "./map-marker";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/components/theme-provider";
-import { googleMapsNavigationUrl } from "@/lib/route-optimizer";
 import type { JobStatus } from "@prisma/client";
 
 export interface RouteStopData {
@@ -17,7 +16,9 @@ export interface RouteStopData {
   /** Position within the day's route, or null when not tied to a specific day's run (e.g. the "all customers" view). */
   sequenceOrder: number | null;
   status: JobStatus;
-  serviceTitle: string;
+  address: string;
+  /** The job type (e.g. "Window Cleaning"), or null in the "all customers" view where there's no specific job. */
+  serviceTitle: string | null;
   customerName: string;
 }
 
@@ -119,23 +120,12 @@ export default function RouteMap({
       )}
 
       {selected && (
-        <div className="absolute bottom-3 left-3 right-3 z-[1000] flex items-center justify-between rounded-lg border border-border bg-card p-3 shadow-lg sm:right-auto sm:w-80">
-          <div>
-            <p className="text-sm font-semibold">{selected.serviceTitle}</p>
-            <p className="text-xs text-muted-foreground">{selected.customerName}</p>
-          </div>
-          {showRoute && (
-            <a
-              href={googleMapsNavigationUrl({ latitude: selected.latitude, longitude: selected.longitude })}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <Button size="sm" variant="outline">
-                <Navigation2 className="h-4 w-4" />
-                Navigate
-              </Button>
-            </a>
-          )}
+        <div className="absolute bottom-3 left-3 right-3 z-[1000] rounded-lg border border-border bg-card p-3 shadow-lg sm:right-auto sm:w-80">
+          <p className="text-sm font-semibold">{selected.address}</p>
+          <p className="text-xs text-muted-foreground">
+            {selected.customerName}
+            {selected.serviceTitle ? ` · ${selected.serviceTitle}` : ""}
+          </p>
         </div>
       )}
     </div>
