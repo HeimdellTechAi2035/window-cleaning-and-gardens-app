@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { JobStatusBadge } from "@/components/planner/job-status-badge";
 import { StripePaymentButton } from "@/components/payments/stripe-payment-button";
 import { PortalAccessForm } from "@/components/payments/portal-access-form";
+import { LegalFooter } from "@/components/layout/legal-footer";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { Droplets, MapPin, CalendarCheck } from "lucide-react";
 
@@ -191,6 +192,8 @@ export default async function ClientPortalPage({
           </CardContent>
         </Card>
       </main>
+
+      <LegalFooter />
     </div>
   );
 }
