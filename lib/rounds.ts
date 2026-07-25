@@ -1,15 +1,16 @@
 import { prisma } from "@/lib/prisma";
-import { normalizeAreaName, colorForArea, startOfDay, endOfDay } from "@/lib/utils";
+import { areaRoundKey, colorForArea, startOfDay, endOfDay } from "@/lib/utils";
 
 export const AUTO_ROUND_MARKER = "Auto-generated round for";
 
 /**
- * Finds or creates the round for a given area name, normalizing casing so
- * "preston", "Preston", and "PRESTON" all resolve to one round rather than
- * silently creating duplicates.
+ * Finds or creates the round for a given area name, keyed off the town
+ * (see `areaRoundKey`) so "Ashton-on-Ribble, Preston" and "Fulwood,
+ * Preston" share one round instead of each becoming its own round that
+ * falsely conflicts with the other on the same day.
  */
 export async function upsertAreaRound(organizationId: string, cityRaw: string) {
-  const areaName = normalizeAreaName(cityRaw);
+  const areaName = areaRoundKey(cityRaw);
   return prisma.round.upsert({
     where: { organizationId_name: { organizationId, name: areaName } },
     update: {},

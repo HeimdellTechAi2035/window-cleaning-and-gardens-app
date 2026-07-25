@@ -85,6 +85,21 @@ export function normalizeAreaName(name: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+/**
+ * Derives the round-grouping key from a city/area field. When someone
+ * enters "Ashton-on-Ribble, Preston" or "Fulwood, Preston", the round
+ * should be "Preston" (the town the crew actually travels to), not a
+ * separate round per neighbourhood — otherwise two customers a few
+ * streets apart in the same town falsely conflict as different rounds.
+ * A round only needs to be that granular once it's deliberately split
+ * (via "Move to round"), which is a manual admin action, not automatic.
+ */
+export function areaRoundKey(cityRaw: string): string {
+  const segments = cityRaw.split(",");
+  const town = segments[segments.length - 1];
+  return normalizeAreaName(town);
+}
+
 const ROUND_COLOR_PALETTE = ["#6366f1", "#0ea5e9", "#22c55e", "#f59e0b", "#ec4899", "#8b5cf6"];
 
 /** Deterministic color per area name, so the same area always gets the same round color. */

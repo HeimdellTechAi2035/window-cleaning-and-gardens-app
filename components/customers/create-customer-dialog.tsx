@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
+import { cn, areaRoundKey } from "@/lib/utils";
 import { servicePresets as serviceOptions } from "@/lib/service-presets";
 import { createCustomerAction } from "@/app/actions/customers";
 
@@ -144,8 +144,8 @@ export function CreateCustomerDialog() {
           </div>
           {city.trim() && (
             <p className="-mt-2 text-xs text-muted-foreground">
-              Will be auto-added to the &quot;{city.trim()}&quot; round, alongside every other
-              customer in that area.
+              Will be auto-added to the &quot;{areaRoundKey(city)}&quot; round, alongside
+              every other customer in that town.
             </p>
           )}
 
