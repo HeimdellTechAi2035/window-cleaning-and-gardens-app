@@ -1,14 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { MapPin, Navigation2, CheckCircle2, XCircle, GripVertical } from "lucide-react";
+import { MapPin, Navigation2, MessageSquare, CheckCircle2, XCircle, GripVertical } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { HazardBadge } from "./hazard-badge";
 import { JobStatusBadge } from "./job-status-badge";
 import { CompleteJobDialog } from "./complete-job-dialog";
 import { SkipJobDialog } from "./skip-job-dialog";
-import { formatCurrency, cn } from "@/lib/utils";
+import { formatCurrency, cn, smsUri } from "@/lib/utils";
 import { googleMapsNavigationUrl, wazeNavigationUrl } from "@/lib/route-optimizer";
 import type { HazardSeverity, JobStatus } from "@prisma/client";
 
@@ -36,6 +36,15 @@ export function JobCard({ job, draggable = false }: { job: JobCardData; draggabl
 
   const isResolved = job.status === "COMPLETED" || job.status === "SKIPPED";
   const canNavigate = job.latitude != null && job.longitude != null;
+
+  const messageHref = job.customerPhone
+    ? smsUri(
+        job.customerPhone,
+        job.status === "COMPLETED"
+          ? `Hi ${job.customerName.split(" ")[0]}, your ${job.serviceTitle} has been completed today. Thank you!`
+          : `Hi ${job.customerName.split(" ")[0]}, this is regarding your ${job.serviceTitle}.`
+      )
+    : null;
 
   return (
     <Card className={cn("overflow-hidden transition-opacity", isResolved && "opacity-70")}>
@@ -100,6 +109,14 @@ export function JobCard({ job, draggable = false }: { job: JobCardData; draggabl
                   </Button>
                 </a>
               </>
+            )}
+            {messageHref && (
+              <a href={messageHref}>
+                <Button variant="outline" size="sm">
+                  <MessageSquare className="h-4 w-4" />
+                  Message
+                </Button>
+              </a>
             )}
           </div>
         </div>
