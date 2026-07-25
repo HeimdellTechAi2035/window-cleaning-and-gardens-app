@@ -15,6 +15,6 @@ const RouteMapInner = dynamic(() => import("./route-map-inner"), {
   ),
 });
 
-export function RouteMap(props: { date: string; stops: RouteStopData[] }) {
+export function RouteMap(props: { date: string; stops: RouteStopData[]; showRoute?: boolean }) {
   return <RouteMapInner {...props} />;
 }

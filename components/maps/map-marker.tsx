@@ -11,11 +11,11 @@ const statusClass: Record<JobStatus, string> = {
   RESCHEDULED: "bg-muted-foreground",
 };
 
-function buildIcon(sequenceOrder: number, status: JobStatus) {
+function buildIcon(label: string, status: JobStatus) {
   const html = `<div class="${cn(
     "flex h-8 w-8 items-center justify-center rounded-full border-2 border-white text-xs font-bold text-white shadow-lg",
     statusClass[status]
-  )}">${sequenceOrder + 1}</div>`;
+  )}">${label}</div>`;
 
   return L.divIcon({
     html,
@@ -34,14 +34,15 @@ export function MapMarker({
 }: {
   latitude: number;
   longitude: number;
-  sequenceOrder: number;
+  /** A day's route position (shown as a number), or null for a plain, unordered pin. */
+  sequenceOrder: number | null;
   status: JobStatus;
   onClick?: () => void;
 }) {
   return (
     <Marker
       position={[latitude, longitude]}
-      icon={buildIcon(sequenceOrder, status)}
+      icon={buildIcon(sequenceOrder === null ? "•" : String(sequenceOrder + 1), status)}
       eventHandlers={onClick ? { click: onClick } : undefined}
     />
   );

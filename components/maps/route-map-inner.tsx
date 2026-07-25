@@ -14,7 +14,8 @@ export interface RouteStopData {
   id: string;
   latitude: number;
   longitude: number;
-  sequenceOrder: number;
+  /** Position within the day's route, or null when not tied to a specific day's run (e.g. the "all customers" view). */
+  sequenceOrder: number | null;
   status: JobStatus;
   serviceTitle: string;
   customerName: string;
@@ -43,7 +44,16 @@ function FitBounds({ stops }: { stops: RouteStopData[] }) {
   return null;
 }
 
-export default function RouteMap({ date, stops }: { date: string; stops: RouteStopData[] }) {
+export default function RouteMap({
+  date,
+  stops,
+  showRoute = true,
+}: {
+  date: string;
+  stops: RouteStopData[];
+  /** Whether this is a day's ordered route (shows the route line + Optimize button) or a plain list of pins. */
+  showRoute?: boolean;
+}) {
   const { theme } = useTheme();
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [selected, setSelected] = useState<RouteStopData | null>(null);
@@ -59,7 +69,7 @@ export default function RouteMap({ date, stops }: { date: string; stops: RouteSt
   const linePositions = useMemo(
     () =>
       [...stops]
-        .sort((a, b) => a.sequenceOrder - b.sequenceOrder)
+        .sort((a, b) => (a.sequenceOrder ?? 0) - (b.sequenceOrder ?? 0))
         .map((s): [number, number] => [s.latitude, s.longitude]),
     [stops]
   );
@@ -84,25 +94,29 @@ export default function RouteMap({ date, stops }: { date: string; stops: RouteSt
         <TileLayer url={theme === "dark" ? TILE_URL.dark : TILE_URL.light} attribution={TILE_ATTRIBUTION} />
         <ZoomControl position="topright" />
         <FitBounds stops={stops} />
-        {stops.length > 1 && <Polyline positions={linePositions} pathOptions={{ color: "#6366f1", weight: 3, dashArray: "1 6" }} />}
+        {showRoute && stops.length > 1 && (
+          <Polyline positions={linePositions} pathOptions={{ color: "#6366f1", weight: 3, dashArray: "1 6" }} />
+        )}
         {stops.map((stop) => (
           <MapMarker
             key={stop.id}
             latitude={stop.latitude}
             longitude={stop.longitude}
-            sequenceOrder={stop.sequenceOrder}
+            sequenceOrder={showRoute ? stop.sequenceOrder : null}
             status={stop.status}
             onClick={() => setSelected(stop)}
           />
         ))}
       </MapContainer>
 
-      <div className="absolute left-3 top-3 z-[1000] flex gap-2">
-        <Button size="sm" onClick={handleOptimize} disabled={isOptimizing} className="shadow-lg">
-          {isOptimizing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-          Optimize route
-        </Button>
-      </div>
+      {showRoute && (
+        <div className="absolute left-3 top-3 z-[1000] flex gap-2">
+          <Button size="sm" onClick={handleOptimize} disabled={isOptimizing} className="shadow-lg">
+            {isOptimizing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            Optimize route
+          </Button>
+        </div>
+      )}
 
       {selected && (
         <div className="absolute bottom-3 left-3 right-3 z-[1000] flex items-center justify-between rounded-lg border border-border bg-card p-3 shadow-lg sm:right-auto sm:w-80">
