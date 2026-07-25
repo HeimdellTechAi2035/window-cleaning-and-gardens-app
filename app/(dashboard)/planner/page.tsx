@@ -40,6 +40,7 @@ export default async function PlannerPage({
     sequenceOrder: job.sequenceOrder,
     serviceTitle: job.service.title,
     customerName: `${job.property.customer.firstName} ${job.property.customer.lastName}`,
+    customerPhone: job.property.customer.phone,
     addressLine1: job.property.addressLine1,
     city: job.property.city,
     postcode: job.property.postcode,

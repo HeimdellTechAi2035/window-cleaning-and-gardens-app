@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import { completeJobAction } from "@/app/actions/jobs";
+import { smsUri } from "@/lib/utils";
 
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -27,11 +28,15 @@ function fileToDataUrl(file: File): Promise<string> {
 export function CompleteJobDialog({
   jobId,
   serviceTitle,
+  customerName,
+  customerPhone,
   open,
   onOpenChange,
 }: {
   jobId: string;
   serviceTitle: string;
+  customerName: string;
+  customerPhone: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -57,6 +62,16 @@ export function CompleteJobDialog({
       onOpenChange(false);
       setPhotoPreview(null);
       setNotes("");
+
+      // Opens the worker's own Messages app with the customer's number and
+      // a prefilled "job done" text — sent from their own phone number,
+      // no SMS provider involved. They can still edit or cancel before
+      // sending.
+      if (customerPhone) {
+        const firstName = customerName.split(" ")[0];
+        const body = `Hi ${firstName}, your ${serviceTitle} has been completed today. Thank you!`;
+        window.location.href = smsUri(customerPhone, body);
+      }
     });
   }
 

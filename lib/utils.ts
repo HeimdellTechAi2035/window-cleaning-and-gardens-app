@@ -10,6 +10,18 @@ export function parseDateInput(value: string): Date {
   return new Date(`${value}T09:00:00`);
 }
 
+/**
+ * Builds an `sms:` link that opens the device's own Messages app with the
+ * number and body prefilled, so the text sends from the worker's own phone
+ * number rather than a business SMS provider. iOS and Android disagree on
+ * how the body param is delimited (iOS wants `&`, Android wants `?`).
+ */
+export function smsUri(phone: string, body: string): string {
+  const isIOS = typeof navigator !== "undefined" && /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const separator = isIOS ? "&" : "?";
+  return `sms:${phone}${separator}body=${encodeURIComponent(body)}`;
+}
+
 export function formatCurrency(amount: number | string, currency = "GBP") {
   const value = typeof amount === "string" ? Number(amount) : amount;
   return new Intl.NumberFormat("en-GB", {

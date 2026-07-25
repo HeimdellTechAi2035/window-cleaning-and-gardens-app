@@ -20,6 +20,7 @@ export interface JobCardData {
   sequenceOrder: number;
   serviceTitle: string;
   customerName: string;
+  customerPhone: string | null;
   addressLine1: string;
   city: string;
   postcode: string;
@@ -120,6 +121,8 @@ export function JobCard({ job, draggable = false }: { job: JobCardData; draggabl
       <CompleteJobDialog
         jobId={job.id}
         serviceTitle={job.serviceTitle}
+        customerName={job.customerName}
+        customerPhone={job.customerPhone}
         open={completeOpen}
         onOpenChange={setCompleteOpen}
       />
