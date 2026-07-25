@@ -93,15 +93,6 @@ export default async function SettingsPage() {
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="twilioFromNumber">Twilio SMS from number</Label>
-              <Input
-                id="twilioFromNumber"
-                name="twilioFromNumber"
-                placeholder={organization.twilioFromNumber ?? "+441234567890"}
-                disabled={!isAdmin}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
               <Label htmlFor="resendFromEmail">Notification from email</Label>
               <Input
                 id="resendFromEmail"
