@@ -124,16 +124,18 @@ export default function RouteMap({
             <p className="text-sm font-semibold">{selected.serviceTitle}</p>
             <p className="text-xs text-muted-foreground">{selected.customerName}</p>
           </div>
-          <a
-            href={googleMapsNavigationUrl({ latitude: selected.latitude, longitude: selected.longitude })}
-            target="_blank"
-            rel="noreferrer"
-          >
-            <Button size="sm" variant="outline">
-              <Navigation2 className="h-4 w-4" />
-              Navigate
-            </Button>
-          </a>
+          {showRoute && (
+            <a
+              href={googleMapsNavigationUrl({ latitude: selected.latitude, longitude: selected.longitude })}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <Button size="sm" variant="outline">
+                <Navigation2 className="h-4 w-4" />
+                Navigate
+              </Button>
+            </a>
+          )}
         </div>
       )}
     </div>
