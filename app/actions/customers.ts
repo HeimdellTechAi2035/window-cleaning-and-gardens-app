@@ -184,7 +184,18 @@ const updateCustomerSchema = z.object({
   postcode: z.string().min(1).optional(),
 });
 
-export async function updateCustomerAction(formData: FormData) {
+// Thrown Errors from Server Actions don't reliably reach the client in
+// production when the action also revalidates the current route — so
+// failures are returned as a typed result instead of thrown.
+export async function updateCustomerAction(formData: FormData): Promise<{ ok: true } | { error: string }> {
+  try {
+    return await updateCustomerActionInner(formData);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Failed to update customer" };
+  }
+}
+
+async function updateCustomerActionInner(formData: FormData): Promise<{ ok: true }> {
   const session = await requireSession();
 
   const parsed = updateCustomerSchema.parse({
@@ -256,6 +267,7 @@ export async function updateCustomerAction(formData: FormData) {
 
   revalidatePath(`/customers/${parsed.customerId}`);
   revalidatePath("/customers");
+  return { ok: true };
 }
 
 // Thrown Errors from Server Actions don't reliably reach the client in

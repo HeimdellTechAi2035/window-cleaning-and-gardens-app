@@ -18,24 +18,39 @@ const roundSchema = z.object({
   colorCode: z.string().min(1),
 });
 
-export async function createRoundAction(formData: FormData) {
-  const session = await requireSession();
-  const parsed = roundSchema.parse({
-    name: formData.get("name"),
-    description: formData.get("description") || undefined,
-    colorCode: formData.get("colorCode") || "#6366f1",
-  });
+// Thrown Errors from Server Actions don't reliably reach the client in
+// production when the action also revalidates the current route — so
+// failures are returned as a typed result instead of thrown.
+export async function createRoundAction(formData: FormData): Promise<{ ok: true } | { error: string }> {
+  try {
+    const session = await requireSession();
+    const parsed = roundSchema.parse({
+      name: formData.get("name"),
+      description: formData.get("description") || undefined,
+      colorCode: formData.get("colorCode") || "#6366f1",
+    });
 
-  await prisma.round.create({
-    data: {
-      organizationId: session.user.organizationId,
-      name: parsed.name,
-      description: parsed.description,
-      colorCode: parsed.colorCode,
-    },
-  });
+    const nameTaken = await prisma.round.findFirst({
+      where: { organizationId: session.user.organizationId, name: { equals: parsed.name, mode: "insensitive" } },
+    });
+    if (nameTaken) {
+      return { error: `A round named "${parsed.name}" already exists.` };
+    }
 
-  revalidatePath("/rounds");
+    await prisma.round.create({
+      data: {
+        organizationId: session.user.organizationId,
+        name: parsed.name,
+        description: parsed.description,
+        colorCode: parsed.colorCode,
+      },
+    });
+
+    revalidatePath("/rounds");
+    return { ok: true };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Failed to create round" };
+  }
 }
 
 const updateRoundSchema = z.object({

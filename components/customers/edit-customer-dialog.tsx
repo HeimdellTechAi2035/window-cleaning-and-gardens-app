@@ -46,16 +46,27 @@ export function EditCustomerDialog({ customer }: { customer: EditCustomerData })
     customer.preferredPaymentMethod
   );
   const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
-  function handleSubmit(formData: FormData) {
+  // onSubmit + preventDefault instead of <form action={fn}> — React resets
+  // every uncontrolled field the instant a form action is invoked whether
+  // it succeeds or not, which would wipe the admin's edits on error.
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
     formData.set("customerId", customer.id);
     formData.set("preferredPaymentMethod", paymentMethod);
     if (customer.property) {
       formData.set("propertyId", customer.property.id);
     }
 
+    setError(null);
     startTransition(async () => {
-      await updateCustomerAction(formData);
+      const result = await updateCustomerAction(formData);
+      if ("error" in result) {
+        setError(result.error);
+        return;
+      }
       setOpen(false);
     });
   }
@@ -73,7 +84,7 @@ export function EditCustomerDialog({ customer }: { customer: EditCustomerData })
           <DialogTitle>Edit customer</DialogTitle>
           <DialogDescription>Update contact details, address, and payment method.</DialogDescription>
         </DialogHeader>
-        <form action={handleSubmit} className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto pr-1">
+        <form onSubmit={handleSubmit} className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto pr-1">
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="edit-firstName">First name</Label>
@@ -144,6 +155,8 @@ export function EditCustomerDialog({ customer }: { customer: EditCustomerData })
               ))}
             </div>
           </div>
+
+          {error && <p className="text-sm text-destructive">{error}</p>}
 
           <DialogFooter>
             <DialogClose asChild>

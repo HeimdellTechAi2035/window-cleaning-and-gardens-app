@@ -34,7 +34,12 @@ export function EditRoundDialog({
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  function handleSubmit(formData: FormData) {
+  // onSubmit + preventDefault instead of <form action={fn}> — React resets
+  // every uncontrolled field the instant a form action is invoked whether
+  // it succeeds or not, which was wiping the admin's edits on error.
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
     formData.set("roundId", roundId);
     formData.set("colorCode", color);
     setError(null);
@@ -64,7 +69,7 @@ export function EditRoundDialog({
             won&apos;t auto-move it back out.
           </DialogDescription>
         </DialogHeader>
-        <form action={handleSubmit} className="flex flex-col gap-4">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="round-name">Round name</Label>
             <Input id="round-name" name="name" defaultValue={name} required />

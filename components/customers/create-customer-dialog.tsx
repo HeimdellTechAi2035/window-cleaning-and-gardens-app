@@ -66,7 +66,16 @@ export function CreateCustomerDialog() {
     });
   }
 
-  function handleSubmit(formData: FormData) {
+  // A plain <form action={fn}> makes React reset every uncontrolled field
+  // (name, email, phone, address, postcode) the instant the action is
+  // invoked — regardless of whether it actually succeeds. That silently
+  // wiped everything the admin had typed whenever a conflict error came
+  // back, forcing them to re-enter a customer's details from scratch.
+  // Using onSubmit + preventDefault instead means fields only ever clear
+  // on a real, confirmed success.
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
     formData.set("preferredPaymentMethod", paymentMethod);
     formData.set("startDate", startDate);
 
@@ -100,7 +109,7 @@ export function CreateCustomerDialog() {
           <DialogTitle>Add customer</DialogTitle>
           <DialogDescription>Creates the customer and their first property.</DialogDescription>
         </DialogHeader>
-        <form ref={formRef} action={handleSubmit} className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto pr-1">
+        <form ref={formRef} onSubmit={handleSubmit} className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto pr-1">
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="firstName">First name</Label>

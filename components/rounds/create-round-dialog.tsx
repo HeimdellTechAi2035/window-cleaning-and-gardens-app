@@ -22,12 +22,23 @@ export function CreateRoundDialog() {
   const [open, setOpen] = useState(false);
   const [color, setColor] = useState(presetColors[0]);
   const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
-  function handleSubmit(formData: FormData) {
+  // onSubmit + preventDefault instead of <form action={fn}> — React resets
+  // every uncontrolled field the instant a form action is invoked whether
+  // it succeeds or not, which would wipe the admin's typing on error.
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
     formData.set("colorCode", color);
+    setError(null);
     startTransition(async () => {
-      await createRoundAction(formData);
+      const result = await createRoundAction(formData);
+      if ("error" in result) {
+        setError(result.error);
+        return;
+      }
       setOpen(false);
       formRef.current?.reset();
     });
@@ -48,7 +59,7 @@ export function CreateRoundDialog() {
             A round groups properties together (e.g. by area or day) for scheduling.
           </DialogDescription>
         </DialogHeader>
-        <form ref={formRef} action={handleSubmit} className="flex flex-col gap-4">
+        <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="name">Round name</Label>
             <Input id="name" name="name" required placeholder="Preston North - Week 1" />
@@ -71,6 +82,9 @@ export function CreateRoundDialog() {
               ))}
             </div>
           </div>
+
+          {error && <p className="text-sm text-destructive">{error}</p>}
+
           <DialogFooter>
             <DialogClose asChild>
               <Button type="button" variant="outline">
