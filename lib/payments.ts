@@ -1,7 +1,12 @@
 import { prisma } from "@/lib/prisma";
-import { createGoCardlessPayment } from "@/lib/gocardless";
-import { chargeSavedCard, createCheckoutSession, findOrCreateStripeCustomer } from "@/lib/stripe";
-import { sendEmail, sendSms, jobCompletedMessage, paymentReceiptEmail } from "@/lib/twilio";
+import { createGoCardlessPayment, getGoCardlessClient } from "@/lib/gocardless";
+import {
+  chargeSavedCard,
+  createCheckoutSession,
+  findOrCreateStripeCustomer,
+  getStripeClient,
+} from "@/lib/stripe";
+import { sendEmail, sendSms, jobCompletedMessage, paymentReceiptEmail, notifyBestEffort } from "@/lib/twilio";
 import { formatCurrency, generateInvoiceNumber } from "@/lib/utils";
 import type { Job, Customer, Service, Property } from "@prisma/client";
 
@@ -18,15 +23,31 @@ type JobWithRelations = Job & {
  * Transaction, and send an SMS/Email receipt. Falls back to leaving the
  * job as UNPAID (e.g. cash / bank transfer customers) so it shows up on
  * the Financials outstanding list.
+ *
+ * Each organization's own Stripe/GoCardless credentials are used — never
+ * a shared one — so a customer's payment settles into their own
+ * business's account.
  */
 export async function triggerPostJobPayment(job: JobWithRelations) {
   const customer = job.property.customer;
   const amount = Number(job.priceCharged);
   const amountPence = Math.round(amount * 100);
 
+  const organization = await prisma.organization.findUniqueOrThrow({
+    where: { id: job.organizationId },
+  });
+
   if (customer.preferredPaymentMethod === "DIRECT_DEBIT" && customer.gocardlessMandateId) {
+    if (!organization.gocardlessAccessToken) {
+      await notifyBestEffort("job completed (no GoCardless configured)", () =>
+        notifyJobCompleted(job, customer, amount, null)
+      );
+      return { gateway: "MANUAL_CASH" as const, status: "UNPAID" as const };
+    }
+
     try {
-      const payment = await createGoCardlessPayment({
+      const gc = getGoCardlessClient(organization.gocardlessAccessToken, organization.gocardlessEnv);
+      const payment = await createGoCardlessPayment(gc, {
         mandateId: customer.gocardlessMandateId,
         amountPence,
         description: job.service.title,
@@ -60,11 +81,19 @@ export async function triggerPostJobPayment(job: JobWithRelations) {
   }
 
   if (customer.preferredPaymentMethod === "CARD" && customer.stripeCustomerId) {
+    if (!organization.stripeSecretKey) {
+      await notifyBestEffort("job completed (no Stripe configured)", () =>
+        notifyJobCompleted(job, customer, amount, null)
+      );
+      return { gateway: "MANUAL_CASH" as const, status: "UNPAID" as const };
+    }
+
     try {
+      const stripe = getStripeClient(organization.stripeSecretKey);
       const paymentMethodId = customer.stripeDefaultPaymentMethodId;
 
       if (paymentMethodId) {
-        const intent = await chargeSavedCard({
+        const intent = await chargeSavedCard(stripe, {
           stripeCustomerId: customer.stripeCustomerId,
           paymentMethodId,
           amountPence,
@@ -98,7 +127,7 @@ export async function triggerPostJobPayment(job: JobWithRelations) {
       }
 
       // No saved card yet — send a Stripe Checkout payment link instead.
-      const stripeCustomer = await findOrCreateStripeCustomer({
+      const stripeCustomer = await findOrCreateStripeCustomer(stripe, {
         existingStripeCustomerId: customer.stripeCustomerId,
         email: customer.email,
         name: `${customer.firstName} ${customer.lastName}`,
@@ -106,7 +135,7 @@ export async function triggerPostJobPayment(job: JobWithRelations) {
       });
 
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-      const session = await createCheckoutSession({
+      const session = await createCheckoutSession(stripe, {
         stripeCustomerId: stripeCustomer.id,
         amountPence,
         description: job.service.title,
@@ -117,10 +146,12 @@ export async function triggerPostJobPayment(job: JobWithRelations) {
 
       await prisma.job.update({ where: { id: job.id }, data: { paymentStatus: "UNPAID" } });
       if (customer.phone) {
-        await sendSms({
-          to: customer.phone,
-          body: `Hi ${customer.firstName}, your ${job.service.title} is complete. Pay securely here: ${session.url}`,
-        });
+        await notifyBestEffort("payment link sms", () =>
+          sendSms({
+            to: customer.phone!,
+            body: `Hi ${customer.firstName}, your ${job.service.title} is complete. Pay securely here: ${session.url}`,
+          })
+        );
       }
       return { gateway: "STRIPE" as const, status: "UNPAID" as const, checkoutUrl: session.url };
     } catch (err) {
@@ -143,19 +174,21 @@ async function notifyJobCompleted(
   const message = jobCompletedMessage(customer.firstName, job.service.title, formatCurrency(amount));
 
   if (customer.phone) {
-    const sms = await sendSms({ to: customer.phone, body: message });
-    await prisma.notification.create({
-      data: {
-        customerId: customer.id,
-        jobId: job.id,
-        type: "JOB_COMPLETED",
-        channel: "SMS",
-        recipient: customer.phone,
-        body: message,
-        status: "sent",
-        providerMessageId: sms.sid,
-        sentAt: new Date(),
-      },
+    await notifyBestEffort("job completed sms", async () => {
+      const sms = await sendSms({ to: customer.phone!, body: message });
+      await prisma.notification.create({
+        data: {
+          customerId: customer.id,
+          jobId: job.id,
+          type: "JOB_COMPLETED",
+          channel: "SMS",
+          recipient: customer.phone!,
+          body: message,
+          status: "sent",
+          providerMessageId: sms.sid,
+          sentAt: new Date(),
+        },
+      });
     });
   }
 
@@ -166,19 +199,21 @@ async function notifyJobCompleted(
       amount: formatCurrency(amount),
       invoiceNumber,
     });
-    await sendEmail({ to: customer.email, subject: `Invoice ${invoiceNumber}`, html });
-    await prisma.notification.create({
-      data: {
-        customerId: customer.id,
-        jobId: job.id,
-        type: "INVOICE",
-        channel: "EMAIL",
-        recipient: customer.email,
-        subject: `Invoice ${invoiceNumber}`,
-        body: html,
-        status: "sent",
-        sentAt: new Date(),
-      },
+    await notifyBestEffort("job completed email", async () => {
+      await sendEmail({ to: customer.email!, subject: `Invoice ${invoiceNumber}`, html });
+      await prisma.notification.create({
+        data: {
+          customerId: customer.id,
+          jobId: job.id,
+          type: "INVOICE",
+          channel: "EMAIL",
+          recipient: customer.email!,
+          subject: `Invoice ${invoiceNumber}`,
+          body: html,
+          status: "sent",
+          sentAt: new Date(),
+        },
+      });
     });
   }
 }
@@ -196,17 +231,19 @@ async function notifyPaymentReceived(
     amount: formatCurrency(amount),
     invoiceNumber,
   });
-  await sendEmail({ to: customer.email, subject: `Payment received — ${invoiceNumber}`, html });
-  await prisma.notification.create({
-    data: {
-      customerId: customer.id,
-      type: "PAYMENT_RECEIPT",
-      channel: "EMAIL",
-      recipient: customer.email,
-      subject: `Payment received — ${invoiceNumber}`,
-      body: html,
-      status: "sent",
-      sentAt: new Date(),
-    },
+  await notifyBestEffort("payment received email", async () => {
+    await sendEmail({ to: customer.email!, subject: `Payment received — ${invoiceNumber}`, html });
+    await prisma.notification.create({
+      data: {
+        customerId: customer.id,
+        type: "PAYMENT_RECEIPT",
+        channel: "EMAIL",
+        recipient: customer.email!,
+        subject: `Payment received — ${invoiceNumber}`,
+        body: html,
+        status: "sent",
+        sentAt: new Date(),
+      },
+    });
   });
 }

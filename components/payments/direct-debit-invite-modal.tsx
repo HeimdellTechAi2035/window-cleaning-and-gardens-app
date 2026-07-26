@@ -25,12 +25,12 @@ export function DirectDebitInviteModal({ customerId }: { customerId: string }) {
   function handleSend() {
     setError(null);
     startTransition(async () => {
-      try {
-        const result = await sendDirectDebitInviteAction(customerId);
-        setMandateUrl(result.mandateUrl);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to send invite");
+      const result = await sendDirectDebitInviteAction(customerId);
+      if ("error" in result) {
+        setError(result.error);
+        return;
       }
+      setMandateUrl(result.mandateUrl);
     });
   }
 

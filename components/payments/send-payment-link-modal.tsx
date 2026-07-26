@@ -33,12 +33,12 @@ export function SendPaymentLinkModal({ customerId }: { customerId: string }) {
     }
     setError(null);
     startTransition(async () => {
-      try {
-        const res = await sendPaymentLinkAction({ customerId, amount: amountNumber, description });
-        setResult(res);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to send payment link");
+      const res = await sendPaymentLinkAction({ customerId, amount: amountNumber, description });
+      if ("error" in res) {
+        setError(res.error);
+        return;
       }
+      setResult(res);
     });
   }
 

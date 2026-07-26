@@ -12,12 +12,12 @@ export function StripePaymentButton({ token, amount }: { token: string; amount: 
   function handlePay() {
     setError(null);
     startTransition(async () => {
-      try {
-        const { checkoutUrl } = await payOutstandingBalanceAction(token);
-        if (checkoutUrl) window.location.href = checkoutUrl;
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Payment failed");
+      const result = await payOutstandingBalanceAction(token);
+      if ("error" in result) {
+        setError(result.error);
+        return;
       }
+      if (result.checkoutUrl) window.location.href = result.checkoutUrl;
     });
   }
 

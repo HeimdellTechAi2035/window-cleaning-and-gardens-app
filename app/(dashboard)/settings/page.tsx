@@ -5,6 +5,7 @@ import { Input, Label } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { initials } from "@/lib/utils";
+import { CopyableField } from "@/components/settings/copyable-field";
 import {
   updateOrganizationProfileAction,
   updateIntegrationSettingsAction,
@@ -22,6 +23,9 @@ export default async function SettingsPage() {
   });
 
   const isAdmin = session!.user.role === "ADMIN";
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://greenfixapp.netlify.app";
+  const stripeWebhookUrl = `${baseUrl}/api/webhooks/stripe/${organization.id}`;
+  const gocardlessWebhookUrl = `${baseUrl}/api/webhooks/gocardless/${organization.id}`;
 
   return (
     <div className="flex flex-col gap-6">
@@ -55,18 +59,56 @@ export default async function SettingsPage() {
         <CardHeader>
           <CardTitle>Integrations</CardTitle>
           <CardDescription>
-            API credentials for GoCardless, Stripe, and notifications. Stored per-organization.
+            Bring your own Stripe and GoCardless accounts so payments from your customers settle
+            directly into your own bank account — not shared with any other business on RoundFlow.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form action={updateIntegrationSettingsAction} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <p className="text-sm font-semibold">Stripe (card payments)</p>
+              <p className="text-xs text-muted-foreground">
+                Get your secret key from the Stripe Dashboard → Developers → API keys.
+              </p>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="stripeSecretKey">Stripe secret key</Label>
+              <Input
+                id="stripeSecretKey"
+                name="stripeSecretKey"
+                type="password"
+                placeholder={organization.stripeSecretKey ? "••••••••••••" : "sk_live_..."}
+                disabled={!isAdmin}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="stripeWebhookSecret">Stripe webhook signing secret</Label>
+              <Input
+                id="stripeWebhookSecret"
+                name="stripeWebhookSecret"
+                type="password"
+                placeholder={organization.stripeWebhookSecret ? "••••••••••••" : "whsec_..."}
+                disabled={!isAdmin}
+              />
+            </div>
+            <CopyableField
+              label="Stripe webhook URL — add this in Stripe Dashboard → Developers → Webhooks"
+              value={stripeWebhookUrl}
+            />
+
+            <div className="sm:col-span-2 border-t border-border pt-4">
+              <p className="text-sm font-semibold">GoCardless (Direct Debit)</p>
+              <p className="text-xs text-muted-foreground">
+                Get your access token from the GoCardless Dashboard → Developers → Access tokens.
+              </p>
+            </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="gocardlessAccessToken">GoCardless access token</Label>
               <Input
                 id="gocardlessAccessToken"
                 name="gocardlessAccessToken"
                 type="password"
-                placeholder={organization.gocardlessAccessToken ? "••••••••••••" : "sandbox_..."}
+                placeholder={organization.gocardlessAccessToken ? "••••••••••••" : "live_..."}
                 disabled={!isAdmin}
               />
             </div>
@@ -84,13 +126,22 @@ export default async function SettingsPage() {
               </select>
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="stripeAccountId">Stripe account ID</Label>
+              <Label htmlFor="gocardlessWebhookSecret">GoCardless webhook secret</Label>
               <Input
-                id="stripeAccountId"
-                name="stripeAccountId"
-                placeholder={organization.stripeAccountId ?? "acct_..."}
+                id="gocardlessWebhookSecret"
+                name="gocardlessWebhookSecret"
+                type="password"
+                placeholder={organization.gocardlessWebhookSecret ? "••••••••••••" : "..."}
                 disabled={!isAdmin}
               />
+            </div>
+            <CopyableField
+              label="GoCardless webhook URL — add this in GoCardless Dashboard → Developers → Webhook endpoints"
+              value={gocardlessWebhookUrl}
+            />
+
+            <div className="sm:col-span-2 border-t border-border pt-4">
+              <p className="text-sm font-semibold">Notifications</p>
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="resendFromEmail">Notification from email</Label>

@@ -1,25 +1,27 @@
 import Stripe from "stripe";
 
-let stripeClient: Stripe | null = null;
-
-export function getStripe(): Stripe {
-  if (stripeClient) return stripeClient;
-  const secretKey = process.env.STRIPE_SECRET_KEY;
-  if (!secretKey) throw new Error("STRIPE_SECRET_KEY is not configured");
-  stripeClient = new Stripe(secretKey, {
+/**
+ * Builds a Stripe client from a specific organization's own secret key.
+ * There is deliberately no shared/global fallback client — every payment
+ * must run through the organization that owns the customer, so their
+ * money settles into their own Stripe account, not anyone else's.
+ */
+export function getStripeClient(secretKey: string): Stripe {
+  return new Stripe(secretKey, {
     apiVersion: "2025-02-24.acacia",
     typescript: true,
   });
-  return stripeClient;
 }
 
-export async function findOrCreateStripeCustomer(params: {
-  existingStripeCustomerId?: string | null;
-  email?: string | null;
-  name: string;
-  phone?: string | null;
-}) {
-  const stripe = getStripe();
+export async function findOrCreateStripeCustomer(
+  stripe: Stripe,
+  params: {
+    existingStripeCustomerId?: string | null;
+    email?: string | null;
+    name: string;
+    phone?: string | null;
+  }
+) {
   if (params.existingStripeCustomerId) {
     return stripe.customers.retrieve(params.existingStripeCustomerId) as Promise<Stripe.Customer>;
   }
@@ -34,16 +36,18 @@ export async function findOrCreateStripeCustomer(params: {
  * Creates a hosted Stripe Checkout session for a one-off job payment.
  * The resulting `url` is what gets sent to the customer via SMS/email.
  */
-export async function createCheckoutSession(params: {
-  stripeCustomerId: string;
-  amountPence: number;
-  currency?: string;
-  description: string;
-  successUrl: string;
-  cancelUrl: string;
-  metadata: Record<string, string>;
-}) {
-  const stripe = getStripe();
+export async function createCheckoutSession(
+  stripe: Stripe,
+  params: {
+    stripeCustomerId: string;
+    amountPence: number;
+    currency?: string;
+    description: string;
+    successUrl: string;
+    cancelUrl: string;
+    metadata: Record<string, string>;
+  }
+) {
   return stripe.checkout.sessions.create({
     mode: "payment",
     customer: params.stripeCustomerId,
@@ -67,15 +71,17 @@ export async function createCheckoutSession(params: {
  * Charges a customer's saved default payment method off-session,
  * used to automatically bill a job on completion.
  */
-export async function chargeSavedCard(params: {
-  stripeCustomerId: string;
-  paymentMethodId: string;
-  amountPence: number;
-  currency?: string;
-  description: string;
-  metadata: Record<string, string>;
-}) {
-  const stripe = getStripe();
+export async function chargeSavedCard(
+  stripe: Stripe,
+  params: {
+    stripeCustomerId: string;
+    paymentMethodId: string;
+    amountPence: number;
+    currency?: string;
+    description: string;
+    metadata: Record<string, string>;
+  }
+) {
   return stripe.paymentIntents.create({
     amount: params.amountPence,
     currency: params.currency ?? "gbp",
@@ -88,9 +94,11 @@ export async function chargeSavedCard(params: {
   });
 }
 
-export function constructStripeWebhookEvent(rawBody: string, signature: string) {
-  const stripe = getStripe();
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-  if (!webhookSecret) throw new Error("STRIPE_WEBHOOK_SECRET is not configured");
+export function constructStripeWebhookEvent(
+  stripe: Stripe,
+  rawBody: string,
+  signature: string,
+  webhookSecret: string
+) {
   return stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
 }

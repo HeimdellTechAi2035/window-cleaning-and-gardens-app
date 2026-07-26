@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { createCheckoutSession, findOrCreateStripeCustomer } from "@/lib/stripe";
+import { createCheckoutSession, findOrCreateStripeCustomer, getStripeClient } from "@/lib/stripe";
 
 async function requireCustomerByToken(token: string) {
   const customer = await prisma.customer.findUnique({ where: { portalToken: token } });
@@ -29,7 +29,20 @@ export async function updateAccessNotesFromPortalAction(params: {
   revalidatePath(`/portal/${params.token}`);
 }
 
-export async function payOutstandingBalanceAction(token: string) {
+// Thrown Errors from Server Actions don't reliably reach the client in
+// production when the action's POST target needs re-rendering — so
+// failures are returned as a typed result instead of thrown.
+export async function payOutstandingBalanceAction(
+  token: string
+): Promise<{ checkoutUrl: string | null } | { error: string }> {
+  try {
+    return await payOutstandingBalanceActionInner(token);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Payment failed" };
+  }
+}
+
+async function payOutstandingBalanceActionInner(token: string) {
   const customer = await requireCustomerByToken(token);
 
   const unpaidJobs = await prisma.job.findMany({
@@ -47,7 +60,15 @@ export async function payOutstandingBalanceAction(token: string) {
 
   const totalAmount = unpaidJobs.reduce((sum, j) => sum + Number(j.priceCharged), 0);
 
-  const stripeCustomer = await findOrCreateStripeCustomer({
+  const organization = await prisma.organization.findUniqueOrThrow({
+    where: { id: customer.organizationId },
+  });
+  if (!organization.stripeSecretKey) {
+    throw new Error("This business hasn't set up online payments yet — please contact them directly.");
+  }
+  const stripe = getStripeClient(organization.stripeSecretKey);
+
+  const stripeCustomer = await findOrCreateStripeCustomer(stripe, {
     existingStripeCustomerId: customer.stripeCustomerId,
     email: customer.email,
     name: `${customer.firstName} ${customer.lastName}`,
@@ -62,7 +83,7 @@ export async function payOutstandingBalanceAction(token: string) {
   }
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-  const session = await createCheckoutSession({
+  const session = await createCheckoutSession(stripe, {
     stripeCustomerId: stripeCustomer.id,
     amountPence: Math.round(totalAmount * 100),
     description: `Outstanding balance (${unpaidJobs.length} visit${unpaidJobs.length === 1 ? "" : "s"})`,

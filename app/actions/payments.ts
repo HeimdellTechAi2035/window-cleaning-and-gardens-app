@@ -4,9 +4,9 @@ import { revalidatePath } from "next/cache";
 import QRCode from "qrcode";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { createGoCardlessCustomer, createMandateRedirectFlow } from "@/lib/gocardless";
-import { findOrCreateStripeCustomer, getStripe, createCheckoutSession } from "@/lib/stripe";
-import { sendEmail, sendSms, mandateInviteEmail } from "@/lib/twilio";
+import { createGoCardlessCustomer, createMandateRedirectFlow, getGoCardlessClient } from "@/lib/gocardless";
+import { findOrCreateStripeCustomer, getStripeClient, createCheckoutSession } from "@/lib/stripe";
+import { sendEmail, sendSms, mandateInviteEmail, notifyBestEffort } from "@/lib/twilio";
 
 async function requireSession() {
   const session = await auth();
@@ -14,13 +14,45 @@ async function requireSession() {
   return session;
 }
 
+async function requireOrgWithGoCardless(organizationId: string) {
+  const org = await prisma.organization.findUniqueOrThrow({ where: { id: organizationId } });
+  if (!org.gocardlessAccessToken) {
+    throw new Error("Add your GoCardless access token in Settings before sending Direct Debit invites.");
+  }
+  return org;
+}
+
+async function requireOrgWithStripe(organizationId: string) {
+  const org = await prisma.organization.findUniqueOrThrow({ where: { id: organizationId } });
+  if (!org.stripeSecretKey) {
+    throw new Error("Add your Stripe secret key in Settings before sending payment links.");
+  }
+  return org;
+}
+
+// Thrown Errors from Server Actions don't reliably reach the client in
+// production when the action also revalidates the current route — so
+// each exported action below wraps its real logic and returns
+// { error: string } on failure instead of throwing.
+export async function sendDirectDebitInviteAction(
+  customerId: string
+): Promise<{ mandateUrl: string } | { error: string }> {
+  try {
+    return await sendDirectDebitInviteActionInner(customerId);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Failed to send Direct Debit invite" };
+  }
+}
+
 /**
  * Generates a GoCardless Direct Debit mandate signup link and emails/texts
  * it to the customer. The customer completes the mandate on GoCardless's
  * hosted page; the `mandates` webhook then flips mandateStatus to "active".
  */
-export async function sendDirectDebitInviteAction(customerId: string) {
+async function sendDirectDebitInviteActionInner(customerId: string) {
   const session = await requireSession();
+  const org = await requireOrgWithGoCardless(session.user.organizationId);
+  const gc = getGoCardlessClient(org.gocardlessAccessToken!, org.gocardlessEnv);
 
   const customer = await prisma.customer.findFirstOrThrow({
     where: { id: customerId, organizationId: session.user.organizationId },
@@ -28,7 +60,7 @@ export async function sendDirectDebitInviteAction(customerId: string) {
 
   let gocardlessCustomerId = customer.gocardlessCustomerId;
   if (!gocardlessCustomerId) {
-    const gcCustomer = await createGoCardlessCustomer({
+    const gcCustomer = await createGoCardlessCustomer(gc, {
       email: customer.email ?? `${customer.id}@placeholder.roundflow.app`,
       givenName: customer.firstName,
       familyName: customer.lastName,
@@ -47,7 +79,7 @@ export async function sendDirectDebitInviteAction(customerId: string) {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   const sessionToken = `${customer.id}-${Date.now()}`;
 
-  const flow = await createMandateRedirectFlow({
+  const flow = await createMandateRedirectFlow(gc, {
     customerId: gocardlessCustomerId,
     sessionToken,
     successRedirectUrl: `${baseUrl}/portal/${customer.portalToken}?mandate=complete&session=${sessionToken}`,
@@ -57,17 +89,21 @@ export async function sendDirectDebitInviteAction(customerId: string) {
   const mandateUrl = flow.redirect_url!;
 
   if (customer.email) {
-    await sendEmail({
-      to: customer.email,
-      subject: "Set up your Direct Debit",
-      html: mandateInviteEmail({ customerName: customer.firstName, mandateUrl }),
-    });
+    await notifyBestEffort("mandate invite email", () =>
+      sendEmail({
+        to: customer.email!,
+        subject: "Set up your Direct Debit",
+        html: mandateInviteEmail({ customerName: customer.firstName, mandateUrl }),
+      })
+    );
   }
   if (customer.phone) {
-    await sendSms({
-      to: customer.phone,
-      body: `Hi ${customer.firstName}, please set up Direct Debit here: ${mandateUrl}`,
-    });
+    await notifyBestEffort("mandate invite sms", () =>
+      sendSms({
+        to: customer.phone!,
+        body: `Hi ${customer.firstName}, please set up Direct Debit here: ${mandateUrl}`,
+      })
+    );
   }
 
   await prisma.notification.create({
@@ -86,19 +122,31 @@ export async function sendDirectDebitInviteAction(customerId: string) {
   return { mandateUrl };
 }
 
+export async function createStripeSetupIntentAction(
+  customerId: string
+): Promise<{ clientSecret: string | null } | { error: string }> {
+  try {
+    return await createStripeSetupIntentActionInner(customerId);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Failed to start card setup" };
+  }
+}
+
 /**
  * Creates (or reuses) a Stripe customer and returns a SetupIntent client
  * secret so the dashboard can collect a card on file for future
  * off-session charges triggered by job completion.
  */
-export async function createStripeSetupIntentAction(customerId: string) {
+async function createStripeSetupIntentActionInner(customerId: string) {
   const session = await requireSession();
+  const org = await requireOrgWithStripe(session.user.organizationId);
+  const stripe = getStripeClient(org.stripeSecretKey!);
 
   const customer = await prisma.customer.findFirstOrThrow({
     where: { id: customerId, organizationId: session.user.organizationId },
   });
 
-  const stripeCustomer = await findOrCreateStripeCustomer({
+  const stripeCustomer = await findOrCreateStripeCustomer(stripe, {
     existingStripeCustomerId: customer.stripeCustomerId,
     email: customer.email,
     name: `${customer.firstName} ${customer.lastName}`,
@@ -112,7 +160,6 @@ export async function createStripeSetupIntentAction(customerId: string) {
     });
   }
 
-  const stripe = getStripe();
   const setupIntent = await stripe.setupIntents.create({
     customer: stripeCustomer.id,
     payment_method_types: ["card"],
@@ -121,24 +168,38 @@ export async function createStripeSetupIntentAction(customerId: string) {
   return { clientSecret: setupIntent.client_secret };
 }
 
+export async function sendPaymentLinkAction(params: {
+  customerId: string;
+  amount: number;
+  description: string;
+}): Promise<{ paymentUrl: string; qrCodeDataUrl: string } | { error: string }> {
+  try {
+    return await sendPaymentLinkActionInner(params);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Failed to send payment link" };
+  }
+}
+
 /**
  * Creates a one-off Stripe Checkout link for an arbitrary amount (not
  * tied to a specific job), sends it to the customer via SMS/email, and
  * returns a QR code image of the link so a worker can also show/scan it
  * in person on-site.
  */
-export async function sendPaymentLinkAction(params: {
+async function sendPaymentLinkActionInner(params: {
   customerId: string;
   amount: number;
   description: string;
 }) {
   const session = await requireSession();
+  const org = await requireOrgWithStripe(session.user.organizationId);
+  const stripe = getStripeClient(org.stripeSecretKey!);
 
   const customer = await prisma.customer.findFirstOrThrow({
     where: { id: params.customerId, organizationId: session.user.organizationId },
   });
 
-  const stripeCustomer = await findOrCreateStripeCustomer({
+  const stripeCustomer = await findOrCreateStripeCustomer(stripe, {
     existingStripeCustomerId: customer.stripeCustomerId,
     email: customer.email,
     name: `${customer.firstName} ${customer.lastName}`,
@@ -153,7 +214,7 @@ export async function sendPaymentLinkAction(params: {
   }
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-  const checkoutSession = await createCheckoutSession({
+  const checkoutSession = await createCheckoutSession(stripe, {
     stripeCustomerId: stripeCustomer.id,
     amountPence: Math.round(params.amount * 100),
     description: params.description,
@@ -169,10 +230,11 @@ export async function sendPaymentLinkAction(params: {
   });
 
   if (customer.email) {
-    await sendEmail({
-      to: customer.email,
-      subject: `Payment request: ${params.description}`,
-      html: `
+    await notifyBestEffort("payment link email", () =>
+      sendEmail({
+        to: customer.email!,
+        subject: `Payment request: ${params.description}`,
+        html: `
         <div style="font-family: -apple-system, Helvetica, Arial, sans-serif; max-width: 480px; margin: 0 auto;">
           <h2 style="color:#111827;">Payment request</h2>
           <p>Hi ${customer.firstName},</p>
@@ -180,13 +242,16 @@ export async function sendPaymentLinkAction(params: {
           <a href="${paymentUrl}" style="display:inline-block; background:#6366f1; color:white; padding:12px 20px; border-radius:8px; text-decoration:none; margin-top:12px;">Pay now</a>
         </div>
       `,
-    });
+      })
+    );
   }
   if (customer.phone) {
-    await sendSms({
-      to: customer.phone,
-      body: `Hi ${customer.firstName}, ${params.description} — £${params.amount.toFixed(2)}. Pay securely here: ${paymentUrl}`,
-    });
+    await notifyBestEffort("payment link sms", () =>
+      sendSms({
+        to: customer.phone!,
+        body: `Hi ${customer.firstName}, ${params.description} — £${params.amount.toFixed(2)}. Pay securely here: ${paymentUrl}`,
+      })
+    );
   }
 
   await prisma.notification.create({

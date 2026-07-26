@@ -1,16 +1,16 @@
 import gocardless, { Environments, parse, type Event as GoCardlessEvent } from "gocardless-nodejs";
 
-let client: ReturnType<typeof gocardless> | null = null;
+type GoCardlessClient = ReturnType<typeof gocardless>;
 
-function getClient() {
-  if (client) return client;
-  const accessToken = process.env.GOCARDLESS_ACCESS_TOKEN;
-  if (!accessToken) {
-    throw new Error("GOCARDLESS_ACCESS_TOKEN is not configured");
-  }
-  const env = process.env.GOCARDLESS_ENV === "live" ? Environments.Live : Environments.Sandbox;
-  client = gocardless(accessToken, env);
-  return client;
+/**
+ * Builds a GoCardless client from a specific organization's own access
+ * token. There is deliberately no shared/global fallback client — every
+ * mandate and payment must run through the organization that owns the
+ * customer, so their money settles into their own account, not anyone
+ * else's.
+ */
+export function getGoCardlessClient(accessToken: string, env: string): GoCardlessClient {
+  return gocardless(accessToken, env === "live" ? Environments.Live : Environments.Sandbox);
 }
 
 export interface CreateCustomerInput {
@@ -23,8 +23,7 @@ export interface CreateCustomerInput {
   phone?: string;
 }
 
-export async function createGoCardlessCustomer(input: CreateCustomerInput) {
-  const gc = getClient();
+export async function createGoCardlessCustomer(gc: GoCardlessClient, input: CreateCustomerInput) {
   const customer = await gc.customers.create({
     email: input.email,
     given_name: input.givenName,
@@ -43,13 +42,15 @@ export async function createGoCardlessCustomer(input: CreateCustomerInput) {
  * mandate signup via GoCardless's hosted page. The returned redirect_url
  * is what gets emailed/texted to the customer.
  */
-export async function createMandateRedirectFlow(params: {
-  customerId: string;
-  sessionToken: string;
-  successRedirectUrl: string;
-  description: string;
-}) {
-  const gc = getClient();
+export async function createMandateRedirectFlow(
+  gc: GoCardlessClient,
+  params: {
+    customerId: string;
+    sessionToken: string;
+    successRedirectUrl: string;
+    description: string;
+  }
+) {
   const flow = await gc.redirectFlows.create({
     description: params.description,
     session_token: params.sessionToken,
@@ -58,11 +59,10 @@ export async function createMandateRedirectFlow(params: {
   return flow;
 }
 
-export async function completeMandateRedirectFlow(params: {
-  redirectFlowId: string;
-  sessionToken: string;
-}) {
-  const gc = getClient();
+export async function completeMandateRedirectFlow(
+  gc: GoCardlessClient,
+  params: { redirectFlowId: string; sessionToken: string }
+) {
   const flow = await gc.redirectFlows.complete(params.redirectFlowId, {
     session_token: params.sessionToken,
   });
@@ -74,14 +74,16 @@ export async function completeMandateRedirectFlow(params: {
  * Used automatically when a Job is marked COMPLETED for a customer
  * on a GoCardless mandate.
  */
-export async function createGoCardlessPayment(params: {
-  mandateId: string;
-  amountPence: number;
-  currency?: "GBP" | "EUR" | "USD" | "AUD" | "CAD" | "DKK" | "NZD" | "SEK";
-  description: string;
-  metadata?: Record<string, string>;
-}) {
-  const gc = getClient();
+export async function createGoCardlessPayment(
+  gc: GoCardlessClient,
+  params: {
+    mandateId: string;
+    amountPence: number;
+    currency?: "GBP" | "EUR" | "USD" | "AUD" | "CAD" | "DKK" | "NZD" | "SEK";
+    description: string;
+    metadata?: Record<string, string>;
+  }
+) {
   const payment = await gc.payments.create({
     amount: String(params.amountPence),
     currency: params.currency ?? "GBP",
@@ -92,13 +94,11 @@ export async function createGoCardlessPayment(params: {
   return payment;
 }
 
-export async function getMandate(mandateId: string) {
-  const gc = getClient();
+export async function getMandate(gc: GoCardlessClient, mandateId: string) {
   return gc.mandates.find(mandateId);
 }
 
-export async function cancelMandate(mandateId: string) {
-  const gc = getClient();
+export async function cancelMandate(gc: GoCardlessClient, mandateId: string) {
   return gc.mandates.cancel(mandateId, {});
 }
 
@@ -109,12 +109,10 @@ export async function cancelMandate(mandateId: string) {
  */
 export function parseGoCardlessWebhook(
   rawBody: string,
-  signatureHeader: string | null
+  signatureHeader: string | null,
+  secret: string
 ): GoCardlessEvent[] {
   if (!signatureHeader) throw new Error("Missing Webhook-Signature header");
-  const secret = process.env.GOCARDLESS_WEBHOOK_SECRET;
-  if (!secret) throw new Error("GOCARDLESS_WEBHOOK_SECRET is not configured");
-
   return parse(rawBody, secret, signatureHeader);
 }
 

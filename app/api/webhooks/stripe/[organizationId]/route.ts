@@ -1,11 +1,16 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { constructStripeWebhookEvent } from "@/lib/stripe";
-import { sendEmail, paymentReceiptEmail } from "@/lib/twilio";
+import { constructStripeWebhookEvent, getStripeClient } from "@/lib/stripe";
+import { sendEmail, paymentReceiptEmail, notifyBestEffort } from "@/lib/twilio";
 import { formatCurrency, generateInvoiceNumber } from "@/lib/utils";
 import type Stripe from "stripe";
 
-export async function POST(request: Request) {
+// Each organization has its own Stripe account and registers its own
+// webhook endpoint (shown to them in Settings) with its own signing
+// secret — that's what lets us verify a webhook using the correct
+// organization's secret without any other way to identify whose event it is.
+export async function POST(request: Request, { params }: { params: Promise<{ organizationId: string }> }) {
+  const { organizationId } = await params;
   const rawBody = await request.text();
   const signature = request.headers.get("stripe-signature");
 
@@ -13,9 +18,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Missing signature" }, { status: 400 });
   }
 
+  const organization = await prisma.organization.findUnique({ where: { id: organizationId } });
+  if (!organization?.stripeSecretKey || !organization.stripeWebhookSecret) {
+    return NextResponse.json({ error: "Stripe not configured for this organization" }, { status: 404 });
+  }
+
+  const stripe = getStripeClient(organization.stripeSecretKey);
+
   let event: Stripe.Event;
   try {
-    event = constructStripeWebhookEvent(rawBody, signature);
+    event = constructStripeWebhookEvent(stripe, rawBody, signature, organization.stripeWebhookSecret);
   } catch (err) {
     console.error("Stripe webhook signature verification failed", err);
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
@@ -72,16 +84,18 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
 
   const customer = await prisma.customer.findUnique({ where: { id: customerId } });
   if (customer?.email) {
-    await sendEmail({
-      to: customer.email,
-      subject: `Payment received — ${invoiceNumber}`,
-      html: paymentReceiptEmail({
-        customerName: customer.firstName,
-        serviceTitle: "your recent visit",
-        amount: formatCurrency(amount),
-        invoiceNumber,
-      }),
-    });
+    await notifyBestEffort("checkout completed receipt email", () =>
+      sendEmail({
+        to: customer.email!,
+        subject: `Payment received — ${invoiceNumber}`,
+        html: paymentReceiptEmail({
+          customerName: customer.firstName,
+          serviceTitle: "your recent visit",
+          amount: formatCurrency(amount),
+          invoiceNumber,
+        }),
+      })
+    );
   }
 }
 

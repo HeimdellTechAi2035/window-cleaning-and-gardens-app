@@ -84,11 +84,16 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Integration credentials (encrypted at rest by app layer)
-  gocardlessAccessToken String?
-  gocardlessEnv         String  @default("sandbox")
-  stripeAccountId       String?
-  resendFromEmail       String?
+  // Integration credentials (encrypted at rest by app layer). Each
+  // organization brings its own Stripe/GoCardless account so that customer
+  // payments go into that organization's own bank account, never a shared
+  // one — this is what makes the app usable by more than one business.
+  gocardlessAccessToken  String?
+  gocardlessEnv          String  @default("sandbox")
+  gocardlessWebhookSecret String?
+  stripeSecretKey        String?
+  stripeWebhookSecret    String?
+  resendFromEmail        String?
 
   users     User[]
   customers Customer[]

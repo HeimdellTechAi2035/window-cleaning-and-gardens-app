@@ -31,7 +31,9 @@ export async function updateIntegrationSettingsAction(formData: FormData) {
 
   const gocardlessAccessToken = formData.get("gocardlessAccessToken");
   const gocardlessEnv = formData.get("gocardlessEnv");
-  const stripeAccountId = formData.get("stripeAccountId");
+  const gocardlessWebhookSecret = formData.get("gocardlessWebhookSecret");
+  const stripeSecretKey = formData.get("stripeSecretKey");
+  const stripeWebhookSecret = formData.get("stripeWebhookSecret");
   const resendFromEmail = formData.get("resendFromEmail");
 
   await prisma.organization.update({
@@ -39,7 +41,9 @@ export async function updateIntegrationSettingsAction(formData: FormData) {
     data: {
       ...(gocardlessAccessToken ? { gocardlessAccessToken: String(gocardlessAccessToken) } : {}),
       ...(gocardlessEnv ? { gocardlessEnv: String(gocardlessEnv) } : {}),
-      ...(stripeAccountId ? { stripeAccountId: String(stripeAccountId) } : {}),
+      ...(gocardlessWebhookSecret ? { gocardlessWebhookSecret: String(gocardlessWebhookSecret) } : {}),
+      ...(stripeSecretKey ? { stripeSecretKey: String(stripeSecretKey) } : {}),
+      ...(stripeWebhookSecret ? { stripeWebhookSecret: String(stripeWebhookSecret) } : {}),
       ...(resendFromEmail ? { resendFromEmail: String(resendFromEmail) } : {}),
     },
   });

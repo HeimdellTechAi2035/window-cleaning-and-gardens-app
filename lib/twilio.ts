@@ -21,6 +21,19 @@ function getResend() {
   return resendClient;
 }
 
+/**
+ * A notification (SMS/email) failing — e.g. this organization hasn't set
+ * up Resend/Twilio yet — should never block or crash a payment/mandate
+ * flow that has already succeeded. Log and move on.
+ */
+export async function notifyBestEffort(label: string, fn: () => Promise<unknown>) {
+  try {
+    await fn();
+  } catch (err) {
+    console.error(`Notification failed (${label}):`, err);
+  }
+}
+
 export async function sendSms(params: { to: string; body: string }) {
   const client = getTwilio();
   const from = process.env.TWILIO_FROM_NUMBER;
