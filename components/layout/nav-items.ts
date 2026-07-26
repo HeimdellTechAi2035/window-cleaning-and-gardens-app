@@ -21,7 +21,7 @@ export const navItems: NavItem[] = [
   { href: "/planner", label: "Day Pilot", icon: CalendarClock, mobile: true },
   { href: "/rounds", label: "Rounds", icon: Repeat, mobile: true },
   { href: "/customers", label: "Customers", icon: Users, mobile: true },
-  { href: "/route-map", label: "Route Map", icon: Map, mobile: false },
+  { href: "/route-map", label: "Route Map", icon: Map, mobile: true },
   { href: "/financials", label: "Financials", icon: Wallet, mobile: true },
   { href: "/settings", label: "Settings", icon: Settings, mobile: false },
 ];
