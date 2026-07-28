@@ -13,6 +13,7 @@ const PUBLIC_PATHS = [
   "/portal",
   "/legal",
   "/manifest.webmanifest",
+  "/admin/manifest.webmanifest",
   "/sw.js",
 ];
 
