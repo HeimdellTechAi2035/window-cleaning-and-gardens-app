@@ -142,8 +142,27 @@ model User {
   assignedJobs Job[] @relation("AssignedWorker")
   completedBy  Job[] @relation("CompletedByWorker")
 
+  pushSubscriptions PushSubscription[]
+
   @@index([organizationId])
   @@map("users")
+}
+
+// A browser Push API subscription for a super-admin's device, used to send
+// a notification (e.g. "new company signed up") straight to their installed
+// /admin PWA. Only super-admins subscribe to these — regular tenant users
+// have no use for platform-wide alerts.
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("push_subscriptions")
 }
 
 model Account {

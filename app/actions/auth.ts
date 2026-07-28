@@ -3,6 +3,8 @@
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { notifySuperAdmins } from "@/lib/push";
+import { notifyBestEffort } from "@/lib/twilio";
 
 const registerSchema = z.object({
   organizationName: z.string().min(2, "Business name is required"),
@@ -70,6 +72,14 @@ export async function registerOrganization(
       },
     },
   });
+
+  await notifyBestEffort("new signup push alert", () =>
+    notifySuperAdmins({
+      title: "New sign-up",
+      body: `${organizationName} just signed up (${email})`,
+      url: "/admin",
+    })
+  );
 
   return { success: true };
 }

@@ -4,6 +4,7 @@ import type { Metadata, Viewport } from "next";
 import { auth } from "@/lib/auth";
 import { isCurrentUserSuperAdmin } from "@/lib/super-admin";
 import { SignOutLink } from "@/components/layout/sign-out-link";
+import { PushSubscribeButton } from "@/components/admin/push-subscribe-button";
 import { ShieldCheck } from "lucide-react";
 
 // Distinct from the root layout's metadata so installing this page (once
@@ -37,6 +38,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             RoundFlow Platform Admin
           </Link>
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
+            <PushSubscribeButton />
             <span>{session.user.email}</span>
             <SignOutLink />
           </div>
