@@ -32,19 +32,20 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <div className="min-h-screen bg-muted/20">
       <header className="border-b border-border bg-card">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
-          <Link href="/admin" className="flex items-center gap-2 font-semibold">
-            <ShieldCheck className="h-5 w-5 text-primary" />
-            RoundFlow Platform Admin
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-3">
+          <Link href="/admin" className="flex shrink-0 items-center gap-2 font-semibold">
+            <ShieldCheck className="h-5 w-5 shrink-0 text-primary" />
+            <span className="sm:hidden">Admin</span>
+            <span className="hidden sm:inline">RoundFlow Platform Admin</span>
           </Link>
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
             <PushSubscribeButton />
-            <span>{session.user.email}</span>
+            <span className="hidden max-w-[12rem] truncate sm:inline">{session.user.email}</span>
             <SignOutLink />
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
+      <main className="mx-auto max-w-5xl px-4 py-6 sm:py-8">{children}</main>
     </div>
   );
 }

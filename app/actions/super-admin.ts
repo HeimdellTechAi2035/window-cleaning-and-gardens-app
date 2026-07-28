@@ -98,6 +98,23 @@ export async function updateUserAsAdminAction(formData: FormData): Promise<{ ok:
   }
 }
 
+export async function deleteOrganizationAsAdminAction(
+  organizationId: string
+): Promise<{ ok: true } | { error: string }> {
+  try {
+    await requireSuperAdmin();
+    // Cascades at the DB level to every user, customer, round, and job that
+    // belongs to this organization (see onDelete: Cascade in schema.prisma) —
+    // there is no recovering this once it runs.
+    await prisma.organization.delete({ where: { id: organizationId } });
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Failed to delete organization" };
+  }
+
+  revalidatePath("/admin");
+  return { ok: true };
+}
+
 export async function resetUserPasswordAsAdminAction(
   userId: string
 ): Promise<{ tempPassword: string } | { error: string }> {

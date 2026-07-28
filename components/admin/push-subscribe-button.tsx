@@ -84,14 +84,14 @@ export function PushSubscribeButton() {
   if (status === "unsupported" || status === "checking") return null;
 
   return status === "subscribed" ? (
-    <Button variant="outline" size="sm" onClick={unsubscribe} disabled={isPending}>
+    <Button variant="outline" size="sm" onClick={unsubscribe} disabled={isPending} title="Turn off sign-up alerts">
       {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <BellOff className="h-4 w-4" />}
-      Alerts on
+      <span className="hidden sm:inline">Alerts on</span>
     </Button>
   ) : (
-    <Button variant="outline" size="sm" onClick={subscribe} disabled={isPending}>
+    <Button variant="outline" size="sm" onClick={subscribe} disabled={isPending} title="Enable sign-up alerts">
       {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bell className="h-4 w-4" />}
-      Enable sign-up alerts
+      <span className="hidden sm:inline">Enable sign-up alerts</span>
     </Button>
   );
 }

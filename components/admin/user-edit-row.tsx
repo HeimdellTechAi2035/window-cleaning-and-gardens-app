@@ -46,25 +46,25 @@ export function UserEditRow({ user }: { user: AdminUserData }) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between px-4 py-2.5"
+        className="flex w-full flex-wrap items-center justify-between gap-2 px-4 py-3"
       >
-        <div className="flex items-center gap-2 text-left">
-          <span className="text-sm font-medium">{user.name ?? user.email}</span>
-          <span className="text-xs text-muted-foreground">{user.email}</span>
+        <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left sm:min-w-[10rem]">
+          <span className="truncate text-sm font-medium">{user.name ?? user.email}</span>
+          <span className="max-w-full truncate text-xs text-muted-foreground">{user.email}</span>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
           {!user.isActive && (
             <Badge variant="destructive" className="text-[10px]">
               Inactive
             </Badge>
           )}
-        </div>
-        <div className="flex items-center gap-2">
           {user.isPlatformSuperAdmin && (
             <Badge variant="destructive" className="text-[10px]">
               Super-admin
             </Badge>
           )}
           <Badge variant={user.role === "ADMIN" ? "default" : "secondary"}>{user.role}</Badge>
-          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", open && "rotate-180")} />
+          <ChevronDown className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} />
         </div>
       </button>
 

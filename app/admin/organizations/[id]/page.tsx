@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
 import { OrgEditForm } from "@/components/admin/org-edit-form";
 import { UserEditRow } from "@/components/admin/user-edit-row";
+import { DeleteOrgButton } from "@/components/admin/delete-org-button";
 
 const statusVariant: Record<string, "success" | "secondary" | "destructive"> = {
   trialing: "secondary",
@@ -42,17 +43,22 @@ export default async function AdminOrganizationDetailPage({
         <ArrowLeft className="h-4 w-4" /> All organizations
       </Link>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold">{organization.name}</h1>
-          <p className="text-sm text-muted-foreground">
-            {organization._count.customers} customers · {organization._count.rounds} rounds · joined{" "}
-            {formatDate(organization.createdAt)}
-          </p>
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="truncate text-xl font-semibold">{organization.name}</h1>
+            <p className="text-sm text-muted-foreground">
+              {organization._count.customers} customers · {organization._count.rounds} rounds · joined{" "}
+              {formatDate(organization.createdAt)}
+            </p>
+          </div>
+          <Badge variant={statusVariant[organization.subscriptionStatus] ?? "secondary"}>
+            {organization.subscriptionStatus.replace(/_/g, " ")}
+          </Badge>
         </div>
-        <Badge variant={statusVariant[organization.subscriptionStatus] ?? "secondary"}>
-          {organization.subscriptionStatus.replace(/_/g, " ")}
-        </Badge>
+        <div>
+          <DeleteOrgButton organizationId={organization.id} organizationName={organization.name} />
+        </div>
       </div>
 
       <Card>
