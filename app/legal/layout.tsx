@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Droplets } from "lucide-react";
 import { LegalFooter } from "@/components/layout/legal-footer";
 
 export default function LegalLayout({ children }: { children: React.ReactNode }) {
@@ -8,9 +7,8 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
       <header className="border-b border-border bg-card">
         <div className="mx-auto flex max-w-3xl items-center gap-2 px-4 py-4">
           <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-              <Droplets className="h-5 w-5" />
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/icons/icon-512.png" alt="" className="h-9 w-9" />
             <span className="font-semibold">RoundFlow</span>
           </Link>
         </div>
