@@ -46,7 +46,7 @@ export default async function SubscribePage() {
           <CardDescription>
             {lapsed
               ? "Resubscribe to regain access to your workspace."
-              : "14 days free, full access. Card required, no charge until your trial ends."}
+              : "7 days free, full access. Card required, no charge until your trial ends."}
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-5">

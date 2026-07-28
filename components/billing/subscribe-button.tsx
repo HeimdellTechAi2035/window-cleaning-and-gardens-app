@@ -25,7 +25,7 @@ export function SubscribeButton() {
     <div className="flex flex-col items-center gap-2">
       <Button size="lg" onClick={handleClick} disabled={isPending} className="w-full">
         {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-        Start 14-day free trial
+        Start 7-day free trial
       </Button>
       {error && <p className="text-sm text-destructive">{error}</p>}
     </div>

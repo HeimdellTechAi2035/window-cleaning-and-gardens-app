@@ -30,7 +30,7 @@ export async function getPlanDetails() {
 }
 
 /**
- * Creates a Stripe Checkout session (subscription mode, 14-day trial) for
+ * Creates a Stripe Checkout session (subscription mode, 7-day trial) for
  * an organization to start paying for RoundFlow. `organizationId` travels
  * in `client_reference_id` so the webhook knows which org a completed
  * checkout belongs to.
@@ -51,7 +51,7 @@ export async function createSubscriptionCheckoutSession(params: {
       : { customer_email: params.customerEmail }),
     line_items: [{ price: getPlatformPriceId(), quantity: 1 }],
     subscription_data: {
-      trial_period_days: 14,
+      trial_period_days: 7,
       metadata: { organizationId: params.organizationId },
     },
     metadata: { organizationId: params.organizationId },
