@@ -15,6 +15,7 @@ const PUBLIC_PATHS = [
   "/manifest.webmanifest",
   "/admin/manifest.webmanifest",
   "/sw.js",
+  "/api/debug-host",
 ];
 
 // The admin subdomain (Netlify branch-deploy of the "admin" branch) runs
