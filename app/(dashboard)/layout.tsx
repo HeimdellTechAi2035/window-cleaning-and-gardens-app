@@ -6,7 +6,7 @@ import { BottomNav } from "@/components/layout/bottom-nav";
 import { TopbarWrapper } from "@/components/layout/topbar-wrapper";
 import { UpdateAvailableBanner } from "@/components/layout/update-available-banner";
 import { LegalFooter } from "@/components/layout/legal-footer";
-import { isSuperAdminSession } from "@/lib/super-admin";
+import { isCurrentUserSuperAdmin } from "@/lib/super-admin";
 import { initials } from "@/lib/utils";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -32,7 +32,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <UpdateAvailableBanner />
       <Sidebar
         orgName={organization?.name ?? "Workspace"}
-        isSuperAdmin={isSuperAdminSession(session)}
+        isSuperAdmin={await isCurrentUserSuperAdmin(session.user.id)}
       />
       <div className="flex min-h-screen flex-1 flex-col">
         <TopbarWrapper

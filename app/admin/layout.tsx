@@ -1,14 +1,32 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import type { Metadata, Viewport } from "next";
 import { auth } from "@/lib/auth";
-import { isSuperAdminSession } from "@/lib/super-admin";
+import { isCurrentUserSuperAdmin } from "@/lib/super-admin";
 import { SignOutLink } from "@/components/layout/sign-out-link";
 import { ShieldCheck } from "lucide-react";
+
+// Distinct from the root layout's metadata so installing this page (once
+// signed in as super-admin) creates a home-screen icon labelled and
+// coloured differently from the main RoundFlow app.
+export const metadata: Metadata = {
+  title: "RoundFlow Platform Admin",
+  manifest: "/admin/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black",
+    title: "RF Admin",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0f172a",
+};
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  if (!isSuperAdminSession(session)) redirect("/dashboard");
+  if (!(await isCurrentUserSuperAdmin(session.user.id))) redirect("/dashboard");
 
   return (
     <div className="min-h-screen bg-muted/20">
