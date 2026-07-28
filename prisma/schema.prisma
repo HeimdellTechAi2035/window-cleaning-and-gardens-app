@@ -127,6 +127,11 @@ model User {
   role          Role      @default(OPERATIVE)
   phone         String?
   isActive      Boolean   @default(true)
+  // Grants access to /admin (every organization, cross-tenant editing).
+  // Deliberately a DB flag set only via the one-time bootstrap action or
+  // by an existing super-admin — never inferred from an email match
+  // against self-registered accounts, since registration is public.
+  isPlatformSuperAdmin Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

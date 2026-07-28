@@ -16,6 +16,7 @@ export interface AdminUserData {
   phone: string | null;
   role: "ADMIN" | "OPERATIVE";
   isActive: boolean;
+  isPlatformSuperAdmin: boolean;
 }
 
 export function UserEditRow({ user }: { user: AdminUserData }) {
@@ -57,6 +58,11 @@ export function UserEditRow({ user }: { user: AdminUserData }) {
           )}
         </div>
         <div className="flex items-center gap-2">
+          {user.isPlatformSuperAdmin && (
+            <Badge variant="destructive" className="text-[10px]">
+              Super-admin
+            </Badge>
+          )}
           <Badge variant={user.role === "ADMIN" ? "default" : "secondary"}>{user.role}</Badge>
           <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", open && "rotate-180")} />
         </div>
@@ -94,6 +100,16 @@ export function UserEditRow({ user }: { user: AdminUserData }) {
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" name="isActive" defaultChecked={user.isActive} className="h-4 w-4" />
             Active (unchecked blocks them from signing in)
+          </label>
+
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              name="isPlatformSuperAdmin"
+              defaultChecked={user.isPlatformSuperAdmin}
+              className="h-4 w-4"
+            />
+            Platform super-admin (sees every organization, not just this one)
           </label>
 
           {error && <p className="text-sm text-destructive">{error}</p>}

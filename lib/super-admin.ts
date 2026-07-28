@@ -2,23 +2,21 @@ import { auth } from "@/lib/auth";
 
 /**
  * Super-admin access (see every organization, edit any user, reset any
- * password) is gated purely by email against SUPER_ADMIN_EMAILS — not a
- * database flag — so granting/revoking it is a one-line env var change,
- * with no risk of a stray DB flag surviving unnoticed.
+ * password) is gated by an explicit isPlatformSuperAdmin flag on the User
+ * row — never by matching the logged-in email against a list, since
+ * registration is public and anyone could otherwise race to register a
+ * known/guessable email first and be granted admin. The flag can only be
+ * set via the one-time bootstrap action (lib/super-admin-bootstrap.ts) or
+ * by an existing super-admin from within /admin.
  */
-export function isSuperAdminEmail(email: string | null | undefined): boolean {
-  if (!email) return false;
-  const allowed = (process.env.SUPER_ADMIN_EMAILS ?? "")
-    .split(",")
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-  return allowed.includes(email.toLowerCase());
+export function isSuperAdminSession(session: { user?: { isPlatformSuperAdmin?: boolean } } | null): boolean {
+  return session?.user?.isPlatformSuperAdmin === true;
 }
 
 export async function requireSuperAdmin() {
   const session = await auth();
-  if (!session?.user || !isSuperAdminEmail(session.user.email)) {
+  if (!isSuperAdminSession(session)) {
     throw new Error("Not authorized");
   }
-  return session;
+  return session!;
 }

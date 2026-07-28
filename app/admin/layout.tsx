@@ -1,14 +1,14 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
-import { isSuperAdminEmail } from "@/lib/super-admin";
+import { isSuperAdminSession } from "@/lib/super-admin";
 import { SignOutLink } from "@/components/layout/sign-out-link";
 import { ShieldCheck } from "lucide-react";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  if (!isSuperAdminEmail(session.user.email)) redirect("/dashboard");
+  if (!isSuperAdminSession(session)) redirect("/dashboard");
 
   return (
     <div className="min-h-screen bg-muted/20">

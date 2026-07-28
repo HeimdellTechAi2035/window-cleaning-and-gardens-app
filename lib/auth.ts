@@ -11,6 +11,7 @@ import { authConfig } from "@/lib/auth.config";
 interface AppJWT extends JWT {
   organizationId: string;
   role: "ADMIN" | "OPERATIVE";
+  isPlatformSuperAdmin: boolean;
 }
 
 // Same rule as the Google provider in auth.config.ts: an empty apiKey
@@ -54,6 +55,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           image: user.image,
           organizationId: user.organizationId,
           role: user.role,
+          isPlatformSuperAdmin: user.isPlatformSuperAdmin,
         };
       },
     }),
@@ -64,6 +66,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (user) {
         appToken.organizationId = user.organizationId as string;
         appToken.role = user.role as "ADMIN" | "OPERATIVE";
+        appToken.isPlatformSuperAdmin = Boolean(user.isPlatformSuperAdmin);
       } else if (!appToken.organizationId && appToken.email) {
         const dbUser = await prisma.user.findUnique({
           where: { email: appToken.email as string },
@@ -71,6 +74,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (dbUser) {
           appToken.organizationId = dbUser.organizationId;
           appToken.role = dbUser.role;
+          appToken.isPlatformSuperAdmin = dbUser.isPlatformSuperAdmin;
           appToken.sub = dbUser.id;
         }
       }
@@ -82,6 +86,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.id = appToken.sub as string;
         session.user.organizationId = appToken.organizationId;
         session.user.role = appToken.role;
+        session.user.isPlatformSuperAdmin = appToken.isPlatformSuperAdmin;
       }
       return session;
     },
