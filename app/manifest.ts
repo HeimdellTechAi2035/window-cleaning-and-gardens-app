@@ -1,6 +1,23 @@
 import type { MetadataRoute } from "next";
+import { headers } from "next/headers";
+import { adminManifest } from "@/lib/admin-manifest";
 
-export default function manifest(): MetadataRoute.Manifest {
+// Every page still under app/layout.tsx (login, dashboard, etc.) links this
+// URL for its manifest — the Metadata API's own `manifest` field can't
+// override it per-page since this file-convention route wins regardless of
+// what a layout's metadata specifies (unlike icons, which nested segments
+// genuinely override). On the admin subdomain, /login is unavoidable during
+// sign-in, so without this, the browser sees a root-scoped ("/") installable
+// app there before ever reaching /admin's narrower-scoped one, and treats
+// /admin as part of that same app rather than a separate install target.
+// Serving the admin manifest here too (same URL, different content by host)
+// closes that off.
+export default async function manifest(): Promise<MetadataRoute.Manifest> {
+  const host = (await headers()).get("host") ?? "";
+  if (host.startsWith("admin--")) {
+    return adminManifest;
+  }
+
   return {
     name: "RoundFlow — Round & Payment Management",
     short_name: "RoundFlow",
