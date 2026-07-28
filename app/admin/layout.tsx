@@ -1,15 +1,14 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import type { Metadata, Viewport } from "next";
-import { auth } from "@/lib/auth";
-import { isCurrentUserSuperAdmin } from "@/lib/super-admin";
-import { SignOutLink } from "@/components/layout/sign-out-link";
+import { getAdminSession } from "@/lib/admin-auth";
+import { adminSignOutAction } from "@/app/actions/admin-auth";
 import { PushSubscribeButton } from "@/components/admin/push-subscribe-button";
-import { ShieldCheck } from "lucide-react";
+import { LogOut, ShieldCheck } from "lucide-react";
 
 // Distinct from the root layout's metadata so installing this page (once
-// signed in as super-admin) creates a home-screen icon labelled and
-// coloured differently from the main RoundFlow app.
+// signed in) creates a home-screen icon labelled and coloured differently
+// from the main RoundFlow app.
 export const metadata: Metadata = {
   title: "RoundFlow Platform Admin",
   manifest: "/admin/manifest.webmanifest",
@@ -25,9 +24,8 @@ export const viewport: Viewport = {
 };
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const session = await auth();
-  if (!session?.user) redirect("/login");
-  if (!(await isCurrentUserSuperAdmin(session.user.id))) redirect("/dashboard");
+  const session = await getAdminSession();
+  if (!session) redirect("/admin-login");
 
   return (
     <div className="min-h-screen bg-muted/20">
@@ -40,8 +38,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </Link>
           <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
             <PushSubscribeButton />
-            <span className="hidden max-w-[12rem] truncate sm:inline">{session.user.email}</span>
-            <SignOutLink />
+            <span className="hidden max-w-[12rem] truncate sm:inline">{session.email}</span>
+            <form action={adminSignOutAction}>
+              <button type="submit" className="flex items-center gap-1.5 underline underline-offset-2">
+                <LogOut className="h-3.5 w-3.5" />
+                Sign out
+              </button>
+            </form>
           </div>
         </div>
       </header>

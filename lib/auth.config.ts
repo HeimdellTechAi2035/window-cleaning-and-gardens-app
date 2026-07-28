@@ -8,7 +8,6 @@ declare module "next-auth" {
       id: string;
       organizationId: string;
       role: "ADMIN" | "OPERATIVE";
-      isPlatformSuperAdmin: boolean;
       name?: string | null;
       email?: string | null;
       image?: string | null;
@@ -18,7 +17,6 @@ declare module "next-auth" {
   interface User {
     organizationId?: string;
     role?: "ADMIN" | "OPERATIVE";
-    isPlatformSuperAdmin?: boolean;
   }
 }
 

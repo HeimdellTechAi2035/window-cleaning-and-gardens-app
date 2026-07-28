@@ -127,11 +127,6 @@ model User {
   role          Role      @default(OPERATIVE)
   phone         String?
   isActive      Boolean   @default(true)
-  // Grants access to /admin (every organization, cross-tenant editing).
-  // Deliberately a DB flag set only via the one-time bootstrap action or
-  // by an existing super-admin — never inferred from an email match
-  // against self-registered accounts, since registration is public.
-  isPlatformSuperAdmin Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -142,26 +137,43 @@ model User {
   assignedJobs Job[] @relation("AssignedWorker")
   completedBy  Job[] @relation("CompletedByWorker")
 
-  pushSubscriptions PushSubscription[]
-
   @@index([organizationId])
   @@map("users")
 }
 
-// A browser Push API subscription for a super-admin's device, used to send
-// a notification (e.g. "new company signed up") straight to their installed
-// /admin PWA. Only super-admins subscribe to these — regular tenant users
-// have no use for platform-wide alerts.
-model PushSubscription {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  endpoint  String   @unique
-  p256dh    String
-  auth      String
-  createdAt DateTime @default(now())
+// The platform owner's own login for /admin — deliberately NOT a User row.
+// There is no tenant Organization here and no self-serve signup: the only
+// way one of these gets created is the secret-gated /admin-bootstrap flow
+// (SUPER_ADMIN_BOOTSTRAP_SECRET) or an existing admin creating another.
+// Kept fully separate from User/Organization so a platform admin never
+// accidentally ends up looking at (or being confused with) a tenant's
+// dashboard.
+model PlatformAdmin {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  @@index([userId])
+  pushSubscriptions PushSubscription[]
+
+  @@map("platform_admins")
+}
+
+// A browser Push API subscription for a platform admin's device, used to
+// send a notification (e.g. "new company signed up") straight to their
+// installed /admin PWA.
+model PushSubscription {
+  id              String        @id @default(cuid())
+  platformAdminId String
+  platformAdmin   PlatformAdmin @relation(fields: [platformAdminId], references: [id], onDelete: Cascade)
+  endpoint        String        @unique
+  p256dh          String
+  auth            String
+  createdAt       DateTime      @default(now())
+
+  @@index([platformAdminId])
   @@map("push_subscriptions")
 }
 

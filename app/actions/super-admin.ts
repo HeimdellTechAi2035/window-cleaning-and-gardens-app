@@ -54,12 +54,11 @@ const updateUserSchema = z.object({
   phone: z.string().optional(),
   role: z.enum(["ADMIN", "OPERATIVE"]),
   isActive: z.boolean(),
-  isPlatformSuperAdmin: z.boolean(),
 });
 
 export async function updateUserAsAdminAction(formData: FormData): Promise<{ ok: true } | { error: string }> {
   try {
-    const session = await requireSuperAdmin();
+    await requireSuperAdmin();
 
     const parsed = updateUserSchema.parse({
       userId: formData.get("userId"),
@@ -68,14 +67,7 @@ export async function updateUserAsAdminAction(formData: FormData): Promise<{ ok:
       phone: formData.get("phone") || undefined,
       role: formData.get("role"),
       isActive: formData.get("isActive") === "on",
-      isPlatformSuperAdmin: formData.get("isPlatformSuperAdmin") === "on",
     });
-
-    // A super-admin can grant the flag to others, but can't remove their
-    // own — otherwise a lone admin could lock themselves out with a typo.
-    if (parsed.userId === session!.user.id && !parsed.isPlatformSuperAdmin) {
-      return { error: "You can't remove your own super-admin access." };
-    }
 
     const user = await prisma.user.findUniqueOrThrow({ where: { id: parsed.userId } });
 
@@ -87,7 +79,6 @@ export async function updateUserAsAdminAction(formData: FormData): Promise<{ ok:
         phone: parsed.phone || null,
         role: parsed.role,
         isActive: parsed.isActive,
-        isPlatformSuperAdmin: parsed.isPlatformSuperAdmin,
       },
     });
 

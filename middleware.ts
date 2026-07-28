@@ -13,8 +13,13 @@ const PUBLIC_PATHS = [
   "/portal",
   "/legal",
   "/manifest.webmanifest",
-  "/admin/manifest.webmanifest",
   "/sw.js",
+  // /admin runs on its own standalone PlatformAdmin session (lib/admin-auth.ts),
+  // entirely independent of NextAuth/tenant Users — gated by app/admin/layout.tsx
+  // itself, not this middleware.
+  "/admin",
+  "/admin-login",
+  "/admin-bootstrap",
 ];
 
 // The admin subdomain (Netlify branch-deploy of the "admin" branch) runs

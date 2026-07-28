@@ -1,8 +1,7 @@
 "use server";
 
-import { auth } from "@/lib/auth";
+import { getAdminSession } from "@/lib/admin-auth";
 import { prisma } from "@/lib/prisma";
-import { isCurrentUserSuperAdmin } from "@/lib/super-admin";
 
 interface SubscriptionInput {
   endpoint: string;
@@ -12,20 +11,19 @@ interface SubscriptionInput {
 export async function savePushSubscriptionAction(
   subscription: SubscriptionInput
 ): Promise<{ ok: true } | { error: string }> {
-  const session = await auth();
-  if (!session?.user?.id) return { error: "Not authenticated" };
-  if (!(await isCurrentUserSuperAdmin(session.user.id))) return { error: "Not authorized" };
+  const session = await getAdminSession();
+  if (!session) return { error: "Not authorized" };
 
   await prisma.pushSubscription.upsert({
     where: { endpoint: subscription.endpoint },
     create: {
-      userId: session.user.id,
+      platformAdminId: session.id,
       endpoint: subscription.endpoint,
       p256dh: subscription.keys.p256dh,
       auth: subscription.keys.auth,
     },
     update: {
-      userId: session.user.id,
+      platformAdminId: session.id,
       p256dh: subscription.keys.p256dh,
       auth: subscription.keys.auth,
     },

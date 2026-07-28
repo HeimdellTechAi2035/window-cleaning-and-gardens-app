@@ -4,9 +4,9 @@ import { useState, useTransition } from "react";
 import { Loader2 } from "lucide-react";
 import { Input, Label } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { bootstrapAdminAction } from "@/app/actions/admin-bootstrap";
+import { adminLoginAction } from "@/app/actions/admin-auth";
 
-export function BootstrapForm() {
+export function AdminLoginForm() {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -15,7 +15,7 @@ export function BootstrapForm() {
     const formData = new FormData(e.currentTarget);
     setError(null);
     startTransition(async () => {
-      const result = await bootstrapAdminAction(formData);
+      const result = await adminLoginAction(formData);
       if (result && "error" in result) {
         setError(result.error);
       }
@@ -26,21 +26,17 @@ export function BootstrapForm() {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="email">Admin email</Label>
+        <Label htmlFor="email">Email</Label>
         <Input id="email" name="email" type="email" required autoFocus />
       </div>
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="password">Admin password</Label>
-        <Input id="password" name="password" type="password" required minLength={8} />
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="secret">Bootstrap secret</Label>
-        <Input id="secret" name="secret" type="password" required />
+        <Label htmlFor="password">Password</Label>
+        <Input id="password" name="password" type="password" required />
       </div>
       {error && <p className="text-sm text-destructive">{error}</p>}
       <Button type="submit" disabled={isPending}>
         {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-        Create the platform admin
+        Sign in
       </Button>
     </form>
   );

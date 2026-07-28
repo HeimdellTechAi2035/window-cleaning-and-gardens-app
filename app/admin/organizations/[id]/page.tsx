@@ -97,7 +97,6 @@ export default async function AdminOrganizationDetailPage({
                 phone: user.phone,
                 role: user.role,
                 isActive: user.isActive,
-                isPlatformSuperAdmin: user.isPlatformSuperAdmin,
               }}
             />
           ))}

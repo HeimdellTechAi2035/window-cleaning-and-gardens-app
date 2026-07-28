@@ -19,16 +19,15 @@ function ensureConfigured(): boolean {
 }
 
 /**
- * Pushes a notification to every device a super-admin has enabled sign-up
- * alerts on. Best-effort by design — a missing VAPID config or a dead
- * subscription must never affect the registration flow that triggered this.
+ * Pushes a notification to every device a platform admin has enabled
+ * sign-up alerts on. Best-effort by design — a missing VAPID config or a
+ * dead subscription must never affect the registration flow that
+ * triggered this.
  */
-export async function notifySuperAdmins(payload: { title: string; body: string; url?: string }) {
+export async function notifyPlatformAdmins(payload: { title: string; body: string; url?: string }) {
   if (!ensureConfigured()) return;
 
-  const subscriptions = await prisma.pushSubscription.findMany({
-    where: { user: { isPlatformSuperAdmin: true } },
-  });
+  const subscriptions = await prisma.pushSubscription.findMany();
 
   await Promise.all(
     subscriptions.map(async (sub) => {

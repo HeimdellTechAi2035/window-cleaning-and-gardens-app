@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Droplets, LogOut, ShieldCheck } from "lucide-react";
+import { Droplets, LogOut } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { navItems } from "./nav-items";
 import { cn } from "@/lib/utils";
 
-export function Sidebar({ orgName, isSuperAdmin }: { orgName: string; isSuperAdmin?: boolean }) {
+export function Sidebar({ orgName }: { orgName: string }) {
   const pathname = usePathname();
 
   return (
@@ -43,18 +43,6 @@ export function Sidebar({ orgName, isSuperAdmin }: { orgName: string; isSuperAdm
           );
         })}
       </nav>
-
-      {isSuperAdmin && (
-        <div className="px-3">
-          <Link
-            href="/admin"
-            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          >
-            <ShieldCheck className="h-4 w-4" />
-            Platform Admin
-          </Link>
-        </div>
-      )}
 
       <div className="border-t border-border p-3">
         <button
