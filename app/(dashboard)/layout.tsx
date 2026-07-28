@@ -6,6 +6,7 @@ import { BottomNav } from "@/components/layout/bottom-nav";
 import { TopbarWrapper } from "@/components/layout/topbar-wrapper";
 import { UpdateAvailableBanner } from "@/components/layout/update-available-banner";
 import { LegalFooter } from "@/components/layout/legal-footer";
+import { isSuperAdminEmail } from "@/lib/super-admin";
 import { initials } from "@/lib/utils";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -14,15 +15,25 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const organization = await prisma.organization.findUnique({
     where: { id: session.user.organizationId },
-    select: { name: true },
+    select: { name: true, subscriptionStatus: true },
   });
+
+  // Only "trialing" (active free trial) and "active" (paying) organizations
+  // get into the app — everyone else (never subscribed, lapsed, canceled)
+  // is sent to complete or fix their billing first.
+  if (organization && !["trialing", "active"].includes(organization.subscriptionStatus)) {
+    redirect("/billing/subscribe");
+  }
 
   const [firstName, lastName = ""] = (session.user.name ?? "User").split(" ");
 
   return (
     <div className="flex min-h-screen">
       <UpdateAvailableBanner />
-      <Sidebar orgName={organization?.name ?? "Workspace"} />
+      <Sidebar
+        orgName={organization?.name ?? "Workspace"}
+        isSuperAdmin={isSuperAdminEmail(session.user.email)}
+      />
       <div className="flex min-h-screen flex-1 flex-col">
         <TopbarWrapper
           userName={session.user.name ?? session.user.email ?? "User"}

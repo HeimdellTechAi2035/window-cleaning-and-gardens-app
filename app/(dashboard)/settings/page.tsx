@@ -6,11 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { initials } from "@/lib/utils";
 import { CopyableField } from "@/components/settings/copyable-field";
+import { ManageBillingButton } from "@/components/billing/manage-billing-button";
 import {
   updateOrganizationProfileAction,
   updateIntegrationSettingsAction,
   inviteTeamMemberAction,
 } from "@/app/actions/organization";
+import { formatDate } from "@/lib/utils";
 
 export default async function SettingsPage() {
   const session = await auth();
@@ -27,8 +29,50 @@ export default async function SettingsPage() {
   const stripeWebhookUrl = `${baseUrl}/api/webhooks/stripe/${organization.id}`;
   const gocardlessWebhookUrl = `${baseUrl}/api/webhooks/gocardless/${organization.id}`;
 
+  const statusLabel: Record<string, string> = {
+    trialing: "Free trial",
+    active: "Active",
+    past_due: "Payment failed",
+    canceled: "Canceled",
+    unpaid: "Unpaid",
+    incomplete: "Not subscribed",
+  };
+  const statusVariant: Record<string, "success" | "secondary" | "destructive"> = {
+    trialing: "secondary",
+    active: "success",
+    past_due: "destructive",
+    canceled: "destructive",
+    unpaid: "destructive",
+    incomplete: "secondary",
+  };
+
   return (
     <div className="flex flex-col gap-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Billing</CardTitle>
+          <CardDescription>Your RoundFlow subscription.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex flex-col gap-1">
+            <Badge variant={statusVariant[organization.subscriptionStatus] ?? "secondary"} className="w-fit">
+              {statusLabel[organization.subscriptionStatus] ?? organization.subscriptionStatus}
+            </Badge>
+            {organization.subscriptionStatus === "trialing" && organization.trialEndsAt && (
+              <p className="text-sm text-muted-foreground">
+                Trial ends {formatDate(organization.trialEndsAt)}
+              </p>
+            )}
+            {organization.subscriptionStatus === "active" && organization.currentPeriodEnd && (
+              <p className="text-sm text-muted-foreground">
+                Renews {formatDate(organization.currentPeriodEnd)}
+              </p>
+            )}
+          </div>
+          {isAdmin && organization.platformStripeCustomerId && <ManageBillingButton />}
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Organization profile</CardTitle>

@@ -95,6 +95,17 @@ model Organization {
   stripeWebhookSecret    String?
   resendFromEmail        String?
 
+  // RoundFlow's own subscription billing for this organization — entirely
+  // separate from the org's own Stripe/GoCardless keys above, which are
+  // for charging *their* customers. This is them paying us to use the app.
+  platformStripeCustomerId     String?
+  platformStripeSubscriptionId String?
+  // incomplete (no checkout completed yet) | trialing | active | past_due
+  // | canceled | unpaid — kept in sync from Stripe via webhook.
+  subscriptionStatus String    @default("incomplete")
+  trialEndsAt        DateTime?
+  currentPeriodEnd   DateTime?
+
   users     User[]
   customers Customer[]
   rounds    Round[]
