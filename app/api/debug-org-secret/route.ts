@@ -6,12 +6,7 @@ export async function GET() {
     where: { id: "cms54izjq0000jv09lesfy7cd" },
     select: { stripeSecretKey: true, stripeWebhookSecret: true },
   });
-  function mask(v: string | null) {
-    if (!v) return null;
-    return { length: v.length, start: v.slice(0, 12), end: v.slice(-6), hasWhitespace: /\s/.test(v) };
-  }
   return NextResponse.json({
-    stripeSecretKey: mask(org?.stripeSecretKey ?? null),
-    stripeWebhookSecret: mask(org?.stripeWebhookSecret ?? null),
+    stripeWebhookSecretFull: org?.stripeWebhookSecret ?? null,
   });
 }
