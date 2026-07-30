@@ -42,6 +42,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ org
           rawBodySha256: crypto.createHash("sha256").update(rawBody).digest("hex"),
           signatureHeader: signature,
           secretLength: organization.stripeWebhookSecret.length,
+          serverNowMs: Date.now(),
+          serverNowIso: new Date().toISOString(),
         },
       },
       { status: 400 }
