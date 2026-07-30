@@ -20,7 +20,6 @@ const PUBLIC_PATHS = [
   "/admin",
   "/admin-login",
   "/admin-bootstrap",
-  "/api/debug-cleanup-test-orgs",
 ];
 
 // The admin subdomain (Netlify branch-deploy of the "admin" branch) runs

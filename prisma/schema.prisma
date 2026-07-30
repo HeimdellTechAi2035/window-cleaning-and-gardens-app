@@ -419,7 +419,7 @@ model Transaction {
   jobId      String?
   job        Job?     @relation(fields: [jobId], references: [id])
   customerId String
-  customer   Customer @relation(fields: [customerId], references: [id])
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
   amount               Decimal        @db.Decimal(10, 2)
   currency             String         @default("GBP")
@@ -442,7 +442,7 @@ model Transaction {
 model Notification {
   id         String   @id @default(cuid())
   customerId String
-  customer   Customer @relation(fields: [customerId], references: [id])
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
   jobId      String?
   job        Job?     @relation(fields: [jobId], references: [id])
 
