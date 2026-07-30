@@ -14,8 +14,12 @@ export async function GET() {
       const deletedTransactions = await prisma.transaction.deleteMany({
         where: { customer: { organizationId: user.organizationId } },
       });
+      const deletedNotifications = await prisma.notification.deleteMany({
+        where: { customer: { organizationId: user.organizationId } },
+      });
       await prisma.organization.delete({ where: { id: user.organizationId } });
-      results[email] = `deleted ${deletedTransactions.count} transaction(s) then org ${user.organizationId}`;
+      results[email] =
+        `deleted ${deletedTransactions.count} transaction(s), ${deletedNotifications.count} notification(s), then org ${user.organizationId}`;
     } catch (e) {
       results[email] = `ERROR: ${e instanceof Error ? e.message : String(e)}`;
     }
