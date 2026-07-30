@@ -366,11 +366,11 @@ model Job {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   roundId    String
-  round      Round    @relation(fields: [roundId], references: [id])
+  round      Round    @relation(fields: [roundId], references: [id], onDelete: Cascade)
   propertyId String
-  property   Property @relation(fields: [propertyId], references: [id])
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   serviceId  String
-  service    Service  @relation(fields: [serviceId], references: [id])
+  service    Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
 
   assignedWorkerId String?
   assignedWorker   User?   @relation("AssignedWorker", fields: [assignedWorkerId], references: [id])
