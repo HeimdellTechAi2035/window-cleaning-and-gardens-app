@@ -30,7 +30,22 @@ export async function POST(request: Request, { params }: { params: Promise<{ org
     event = constructStripeWebhookEvent(stripe, rawBody, signature, organization.stripeWebhookSecret);
   } catch (err) {
     console.error("Stripe webhook signature verification failed", err);
-    return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
+    // TEMPORARY diagnostics
+    const crypto = await import("crypto");
+    return NextResponse.json(
+      {
+        error: "Invalid signature",
+        debug: {
+          rawBodyLength: rawBody.length,
+          rawBodyStart: rawBody.slice(0, 40),
+          rawBodyEnd: rawBody.slice(-40),
+          rawBodySha256: crypto.createHash("sha256").update(rawBody).digest("hex"),
+          signatureHeader: signature,
+          secretLength: organization.stripeWebhookSecret.length,
+        },
+      },
+      { status: 400 }
+    );
   }
 
   switch (event.type) {
