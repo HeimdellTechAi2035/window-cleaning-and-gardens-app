@@ -7,6 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { initials } from "@/lib/utils";
 import { CopyableField } from "@/components/settings/copyable-field";
 import { ManageBillingButton } from "@/components/billing/manage-billing-button";
+import { DeleteAccountButton } from "@/components/settings/delete-account-button";
+import { DeleteOrganizationSection } from "@/components/settings/delete-organization-section";
+import { TransferAdminButton } from "@/components/settings/transfer-admin-button";
 import {
   updateOrganizationProfileAction,
   updateIntegrationSettingsAction,
@@ -25,6 +28,18 @@ export default async function SettingsPage() {
   });
 
   const isAdmin = session!.user.role === "ADMIN";
+
+  const pendingOrgDeletionRequest = isAdmin
+    ? await prisma.accountDeletionRequest.findFirst({
+        where: {
+          organizationId: session!.user.organizationId,
+          requestType: "ORGANIZATION",
+          status: { in: ["PENDING_VERIFICATION", "VERIFIED", "IN_PROGRESS"] },
+        },
+        select: { id: true, processingDeadline: true, requestedAt: true },
+        orderBy: { requestedAt: "desc" },
+      })
+    : null;
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://greenfixapp.netlify.app";
   const stripeWebhookUrl = `${baseUrl}/api/webhooks/stripe/${organization.id}`;
   const gocardlessWebhookUrl = `${baseUrl}/api/webhooks/gocardless/${organization.id}`;
@@ -225,7 +240,12 @@ export default async function SettingsPage() {
                     <p className="text-xs text-muted-foreground">{user.email}</p>
                   </div>
                 </div>
-                <Badge variant={user.role === "ADMIN" ? "default" : "secondary"}>{user.role}</Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant={user.role === "ADMIN" ? "default" : "secondary"}>{user.role}</Badge>
+                  {isAdmin && user.role !== "ADMIN" && user.isActive && (
+                    <TransferAdminButton userId={user.id} userName={user.name ?? user.email} />
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -249,6 +269,39 @@ export default async function SettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Your account</CardTitle>
+          <CardDescription>
+            Delete your own RoundFlow login. Your organisation and its other data are not affected.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <DeleteAccountButton />
+        </CardContent>
+      </Card>
+
+      {isAdmin && (
+        <Card className="border-destructive/40">
+          <CardHeader>
+            <CardTitle className="text-destructive">Danger zone</CardTitle>
+            <CardDescription>
+              Permanently delete {organization.name} and everything in it. See our{" "}
+              <a href="/legal/delete-account" className="underline underline-offset-2">
+                account deletion policy
+              </a>{" "}
+              for full details.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <DeleteOrganizationSection
+              organizationName={organization.name}
+              pendingRequest={pendingOrgDeletionRequest}
+            />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

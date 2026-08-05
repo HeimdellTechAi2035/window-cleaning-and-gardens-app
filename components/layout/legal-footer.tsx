@@ -39,6 +39,9 @@ export function LegalFooter({ className }: { className?: string }) {
         <Link href="/legal/cookies" className="underline underline-offset-2 hover:text-foreground">
           Cookie Policy
         </Link>
+        <Link href="/legal/delete-account" className="underline underline-offset-2 hover:text-foreground">
+          Delete My Account
+        </Link>
         <a href="mailto:admin@heimdell-tech-ai.co.uk" className="underline underline-offset-2 hover:text-foreground">
           admin@heimdell-tech-ai.co.uk
         </a>

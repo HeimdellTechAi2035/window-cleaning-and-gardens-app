@@ -71,6 +71,25 @@ enum NotificationType {
   MANDATE_INVITE
 }
 
+enum DeletionRequestType {
+  USER
+  ORGANIZATION
+}
+
+enum DeletionRequestSource {
+  IN_APP
+  PUBLIC_WEB
+}
+
+enum DeletionRequestStatus {
+  PENDING_VERIFICATION
+  VERIFIED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  REJECTED
+}
+
 // ------------------------------------------------------------------
 // Multi-tenant / Auth
 // ------------------------------------------------------------------
@@ -88,12 +107,12 @@ model Organization {
   // organization brings its own Stripe/GoCardless account so that customer
   // payments go into that organization's own bank account, never a shared
   // one — this is what makes the app usable by more than one business.
-  gocardlessAccessToken  String?
-  gocardlessEnv          String  @default("sandbox")
+  gocardlessAccessToken   String?
+  gocardlessEnv           String  @default("sandbox")
   gocardlessWebhookSecret String?
-  stripeSecretKey        String?
-  stripeWebhookSecret    String?
-  resendFromEmail        String?
+  stripeSecretKey         String?
+  stripeWebhookSecret     String?
+  resendFromEmail         String?
 
   // RoundFlow's own subscription billing for this organization — entirely
   // separate from the org's own Stripe/GoCardless keys above, which are
@@ -102,14 +121,19 @@ model Organization {
   platformStripeSubscriptionId String?
   // incomplete (no checkout completed yet) | trialing | active | past_due
   // | canceled | unpaid — kept in sync from Stripe via webhook.
-  subscriptionStatus String    @default("incomplete")
-  trialEndsAt        DateTime?
-  currentPeriodEnd   DateTime?
+  subscriptionStatus           String    @default("incomplete")
+  trialEndsAt                  DateTime?
+  currentPeriodEnd             DateTime?
 
   users     User[]
   customers Customer[]
   rounds    Round[]
   jobs      Job[]
+
+  // Nullable / SET NULL deliberately — a deletion request must survive the
+  // organization it refers to being deleted (that's the whole point of the
+  // audit trail), so this can never be an onDelete: Cascade relation.
+  deletionRequests AccountDeletionRequest[]
 
   @@map("organizations")
 }
@@ -136,6 +160,9 @@ model User {
 
   assignedJobs Job[] @relation("AssignedWorker")
   completedBy  Job[] @relation("CompletedByWorker")
+
+  // Same SET NULL reasoning as Organization.deletionRequests above.
+  deletionRequests AccountDeletionRequest[]
 
   @@index([organizationId])
   @@map("users")
@@ -238,10 +265,10 @@ model Customer {
 
   preferredPaymentMethod PaymentMethod @default(CASH)
 
-  gocardlessCustomerId String?
-  gocardlessMandateId  String?
-  mandateStatus        String? // pending_submission, submitted, active, failed, cancelled
-  stripeCustomerId     String?
+  gocardlessCustomerId         String?
+  gocardlessMandateId          String?
+  mandateStatus                String? // pending_submission, submitted, active, failed, cancelled
+  stripeCustomerId             String?
   stripeDefaultPaymentMethodId String?
 
   portalToken String @unique @default(cuid())
@@ -251,8 +278,8 @@ model Customer {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  properties   Property[]
-  transactions Transaction[]
+  properties    Property[]
+  transactions  Transaction[]
   notifications Notification[]
 
   @@index([organizationId])
@@ -271,7 +298,7 @@ model Property {
   latitude     Float?
   longitude    Float?
 
-  accessNotes String? @db.Text
+  accessNotes String?          @db.Text
   hazards     PropertyHazard[]
 
   // The round this property belongs to. Set automatically from the city
@@ -323,11 +350,11 @@ model Service {
   propertyId String
   property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
-  title               String // "Standard Window Clean", "Lawn Mowing & Edging"
-  description         String? @db.Text
-  price               Decimal @db.Decimal(10, 2)
-  defaultIntervalWeeks Int    @default(4) // 0 = one-off
-  isActive            Boolean @default(true)
+  title                String // "Standard Window Clean", "Lawn Mowing & Edging"
+  description          String? @db.Text
+  price                Decimal @db.Decimal(10, 2)
+  defaultIntervalWeeks Int     @default(4) // 0 = one-off
+  isActive             Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -375,21 +402,21 @@ model Job {
   assignedWorkerId String?
   assignedWorker   User?   @relation("AssignedWorker", fields: [assignedWorkerId], references: [id])
 
-  status          JobStatus @default(SCHEDULED)
-  scheduledDate   DateTime
-  sequenceOrder   Int       @default(0) // manual drag-and-drop order within the day/round
-  intervalWeeksAtCreation Int @default(4) // snapshot of the interval used to schedule this job
+  status                  JobStatus @default(SCHEDULED)
+  scheduledDate           DateTime
+  sequenceOrder           Int       @default(0) // manual drag-and-drop order within the day/round
+  intervalWeeksAtCreation Int       @default(4) // snapshot of the interval used to schedule this job
 
-  startedAt   DateTime?
-  completedAt DateTime?
+  startedAt           DateTime?
+  completedAt         DateTime?
   completedByWorkerId String?
-  completedByWorker   User? @relation("CompletedByWorker", fields: [completedByWorkerId], references: [id])
+  completedByWorker   User?     @relation("CompletedByWorker", fields: [completedByWorkerId], references: [id])
 
   priceCharged Decimal @db.Decimal(10, 2)
 
-  skipReason   SkipReason?
-  skipNote     String?
-  carriedForward Boolean @default(false)
+  skipReason     SkipReason?
+  skipNote       String?
+  carriedForward Boolean     @default(false)
 
   beforePhotoUrl String?
   afterPhotoUrl  String?
@@ -446,16 +473,131 @@ model Notification {
   jobId      String?
   job        Job?     @relation(fields: [jobId], references: [id])
 
-  type      NotificationType
-  channel   NotificationChannel
-  recipient String // phone number or email actually used
-  subject   String?
-  body      String   @db.Text
-  status    String   @default("queued") // queued, sent, delivered, failed
+  type              NotificationType
+  channel           NotificationChannel
+  recipient         String // phone number or email actually used
+  subject           String?
+  body              String              @db.Text
+  status            String              @default("queued") // queued, sent, delivered, failed
   providerMessageId String?
-  sentAt    DateTime?
-  createdAt DateTime @default(now())
+  sentAt            DateTime?
+  createdAt         DateTime            @default(now())
 
   @@index([customerId])
   @@map("notifications")
+}
+
+// ------------------------------------------------------------------
+// Account deletion (Google Play / UK GDPR compliance)
+// ------------------------------------------------------------------
+
+// The permanent audit record that a deletion request existed and was
+// handled — deliberately designed to outlive the User/Organization it
+// refers to. Both relations below are onDelete: SetNull, never Cascade,
+// so deleting the account this request is ABOUT can never delete the
+// record that PROVES the deletion happened. Email/name fields are
+// snapshotted at request time for the same reason: the live row may be
+// gone or anonymised by the time anyone reads this record back.
+model AccountDeletionRequest {
+  id          String                @id @default(cuid())
+  requestType DeletionRequestType
+  source      DeletionRequestSource
+  status      DeletionRequestStatus @default(PENDING_VERIFICATION)
+
+  organizationId           String?
+  organization             Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  organizationNameSnapshot String?
+
+  userId            String?
+  user              User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userEmailSnapshot String?
+
+  // The email address the request was made from/for — always kept, even
+  // once the account itself is gone or anonymised.
+  requesterEmail String
+
+  // Never store the raw token — only its SHA-256 hash, checked with a
+  // timing-safe comparison. Single-use (status leaves PENDING_VERIFICATION
+  // the moment it's consumed) and time-limited (verificationExpiry).
+  verificationTokenHash String?
+  verificationExpiry    DateTime?
+
+  requestedAt        DateTime  @default(now())
+  verifiedAt         DateTime?
+  processingDeadline DateTime?
+  cancelledAt        DateTime?
+  completedAt        DateTime?
+  rejectedAt         DateTime?
+  rejectionReason    String?
+
+  // Free-text notes from whoever processed it, and a short summary of what
+  // was deleted vs retained (and why) — the minimum needed to prove the
+  // request was handled correctly, without itself becoming a new store of
+  // personal data.
+  processingNotes  String? @db.Text
+  retentionSummary String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([status])
+  @@map("account_deletion_requests")
+}
+
+// A minimal, anonymised snapshot created ONLY when an organization
+// deletion is processed — exists purely so Heimdell's own accounting
+// records reconcile with what Stripe already retains under Heimdell's
+// platform Stripe account. Deliberately has NO foreign keys at all (not
+// even a nullable one) so it is structurally impossible for this table to
+// be affected by any future deletion, and deliberately carries no tenant
+// customer personal data — only the fact that an organization subscribed,
+// for how long, and a reference back to Stripe's own (separately retained)
+// invoice history for the actual financial detail.
+model PlatformBillingRecord {
+  id String @id @default(cuid())
+
+  organizationName String
+  organizationSlug String
+
+  platformStripeCustomerId     String?
+  platformStripeSubscriptionId String?
+  lastSubscriptionStatus       String
+
+  subscriptionStartedAt DateTime?
+  subscriptionEndedAt   DateTime
+
+  // Loose reference only (no FK) — for cross-referencing back to the
+  // AccountDeletionRequest audit trail, never a hard dependency.
+  deletionRequestId String?
+
+  retainedUntil   DateTime
+  retentionReason String   @default("UK accounting/tax record-keeping obligation (Companies Act 2006 s.388 / HMRC guidance: 6 years)")
+
+  createdAt DateTime @default(now())
+
+  @@map("platform_billing_records")
+}
+
+// Abuse-protection counters for the unauthenticated public deletion-request
+// endpoints only (/legal/delete-account and its email-verification step).
+// A fixed-window counter per (scope, key): "scope" identifies which limit
+// this is (e.g. "public_deletion_submit_ip"), "key" is a keyed-HMAC hash of
+// the real value (IP address or normalised email) — never the raw value
+// itself. No relations to any other model, deliberately: this table is
+// purely a short-lived abuse-protection signal, not personal data, and must
+// never interfere with account/organization deletion in either direction.
+model RateLimitBucket {
+  id        String   @id @default(cuid())
+  scope     String
+  key       String
+  count     Int      @default(1)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([scope, key])
+  @@index([expiresAt])
+  @@map("rate_limit_buckets")
 }

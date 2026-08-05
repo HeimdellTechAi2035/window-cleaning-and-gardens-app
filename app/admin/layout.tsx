@@ -37,6 +37,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <span className="hidden sm:inline">RoundFlow Platform Admin</span>
           </Link>
           <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+            <Link href="/admin/deletion-requests" className="underline underline-offset-2">
+              Deletion requests
+            </Link>
             <PushSubscribeButton />
             <span className="hidden max-w-[12rem] truncate sm:inline">{session.email}</span>
             <form action={adminSignOutAction}>

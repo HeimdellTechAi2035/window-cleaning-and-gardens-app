@@ -82,9 +82,13 @@ export default function TermsPage() {
 
       <h2 className="text-lg font-semibold">8. Termination</h2>
       <p>
-        You may stop using the Service and close your account at any time. We may suspend or
-        terminate access if these Terms are breached, or on reasonable notice for any other
-        reason. On termination, we will handle your data in line with our{" "}
+        You may stop using the Service and close your account at any time — see our{" "}
+        <a href="/legal/delete-account" className="underline underline-offset-2">
+          account deletion page
+        </a>{" "}
+        for how to request deletion of your own account or your whole organisation, in or out of
+        the app. We may suspend or terminate access if these Terms are breached, or on reasonable
+        notice for any other reason. On termination, we will handle your data in line with our{" "}
         <a href="/legal/privacy" className="underline underline-offset-2">
           Privacy Policy
         </a>
