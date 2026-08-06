@@ -125,6 +125,20 @@ model Organization {
   trialEndsAt                  DateTime?
   currentPeriodEnd             DateTime?
 
+  // Marks the single, well-known Google Play reviewer/demo tenant. Set ONLY
+  // by the dedicated, requireSuperAdmin()-gated reviewer-access action
+  // (app/actions/reviewer-access.ts) — never through any tenant-facing form
+  // or action, and never settable by an admin-supplied organizationId (that
+  // action always locates the reviewer org itself by its own fixed slug,
+  // it never accepts one as input). Used to: exempt this org from platform-
+  // billing webhook writes (defence in depth — see the webhook handler),
+  // and to flag it clearly in the platform-admin UI. Does NOT bypass the
+  // subscription paywall by itself — that's done the same way any org is
+  // already unlocked (subscriptionStatus = "active"), no special-cased gate
+  // was added for this flag.
+  isReviewerOrganisation  Boolean   @default(false)
+  reviewerDemoDataResetAt DateTime?
+
   users     User[]
   customers Customer[]
   rounds    Round[]

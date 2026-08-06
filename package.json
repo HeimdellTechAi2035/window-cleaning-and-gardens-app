@@ -18,7 +18,8 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "prisma:seed": "tsx prisma/seed.ts",
-    "validate:staging": "tsx scripts/validate-account-deletion-staging.ts"
+    "validate:staging": "tsx scripts/validate-account-deletion-staging.ts",
+    "validate:reviewer-staging": "tsx scripts/validate-reviewer-access-staging.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

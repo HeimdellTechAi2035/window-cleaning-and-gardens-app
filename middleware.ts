@@ -12,6 +12,7 @@ const PUBLIC_PATHS = [
   "/api/webhooks",
   "/portal",
   "/legal",
+  "/play-review",
   "/manifest.webmanifest",
   "/sw.js",
   // /admin runs on its own standalone PlatformAdmin session (lib/admin-auth.ts),

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
+import { randomInt } from "crypto";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireSuperAdmin } from "@/lib/super-admin";
@@ -9,10 +10,12 @@ import { requireSuperAdmin } from "@/lib/super-admin";
 const SUBSCRIPTION_STATUSES = ["incomplete", "trialing", "active", "past_due", "canceled", "unpaid"] as const;
 
 function randomPassword() {
-  // Human-typeable temp password: e.g. "bright-otter-4821".
+  // Human-typeable temp password: e.g. "bright-otter-4821". Every random
+  // component uses crypto.randomInt() (cryptographically secure), never
+  // Math.random() — this value grants real account access.
   const words = ["bright", "quiet", "swift", "amber", "coral", "misty", "otter", "cedar", "lunar", "ember"];
-  const pick = () => words[Math.floor(Math.random() * words.length)];
-  return `${pick()}-${pick()}-${Math.floor(1000 + Math.random() * 9000)}`;
+  const pick = () => words[randomInt(0, words.length)];
+  return `${pick()}-${pick()}-${randomInt(1000, 10000)}`;
 }
 
 // Every action here deliberately has NO organizationId scoping on its

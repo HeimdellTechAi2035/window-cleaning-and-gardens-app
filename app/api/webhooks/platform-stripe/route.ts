@@ -41,11 +41,28 @@ export async function POST(request: Request) {
   return NextResponse.json({ received: true });
 }
 
+/**
+ * Defence in depth: the Google Play reviewer/demo organisation never goes
+ * through Stripe Checkout, so it has no platformStripeCustomerId/
+ * platformStripeSubscriptionId for a real Stripe event to ever match in
+ * the first place — but every handler below still explicitly re-checks
+ * isReviewerOrganisation before writing, so a bug or unexpected event
+ * shape can never flip its access off (or on) via this webhook.
+ */
+async function isReviewerOrganisation(organizationId: string): Promise<boolean> {
+  const org = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    select: { isReviewerOrganisation: true },
+  });
+  return org?.isReviewerOrganisation ?? false;
+}
+
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   const organizationId = session.client_reference_id ?? session.metadata?.organizationId;
   const subscriptionId = session.subscription as string | null;
   const customerId = session.customer as string | null;
   if (!organizationId || !subscriptionId || !customerId) return;
+  if (await isReviewerOrganisation(organizationId)) return;
 
   const stripe = getPlatformStripe();
   const subscription = await stripe.subscriptions.retrieve(subscriptionId);
@@ -65,6 +82,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
 async function syncSubscription(subscription: Stripe.Subscription) {
   const organizationId = subscription.metadata?.organizationId;
   if (!organizationId) return;
+  if (await isReviewerOrganisation(organizationId)) return;
 
   await prisma.organization.update({
     where: { id: organizationId },
@@ -80,6 +98,7 @@ async function syncSubscription(subscription: Stripe.Subscription) {
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   const organizationId = subscription.metadata?.organizationId;
   if (!organizationId) return;
+  if (await isReviewerOrganisation(organizationId)) return;
 
   await prisma.organization.update({
     where: { id: organizationId },

@@ -40,6 +40,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <Link href="/admin/deletion-requests" className="underline underline-offset-2">
               Deletion requests
             </Link>
+            <Link href="/admin/google-play-reviewer" className="underline underline-offset-2">
+              Play reviewer access
+            </Link>
             <PushSubscribeButton />
             <span className="hidden max-w-[12rem] truncate sm:inline">{session.email}</span>
             <form action={adminSignOutAction}>
