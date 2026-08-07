@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "uk.co.heimdelltechai.roundflow",
+      "sha256_cert_fingerprints": [
+        "8F:01:73:6D:35:E2:8C:C6:E7:98:33:12:E3:61:3C:08:53:54:1D:E0:9A:7B:A1:39:6E:3F:7D:1D:35:FE:8E:87"
+      ]
+    }
+  }
+]

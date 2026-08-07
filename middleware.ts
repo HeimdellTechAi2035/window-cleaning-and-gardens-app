@@ -15,6 +15,9 @@ const PUBLIC_PATHS = [
   "/play-review",
   "/manifest.webmanifest",
   "/sw.js",
+  // Digital Asset Links file for the Android TWA — Google's verifier fetches
+  // this unauthenticated, so it must never be caught by the login redirect.
+  "/.well-known",
   // /admin runs on its own standalone PlatformAdmin session (lib/admin-auth.ts),
   // entirely independent of NextAuth/tenant Users — gated by app/admin/layout.tsx
   // itself, not this middleware.
