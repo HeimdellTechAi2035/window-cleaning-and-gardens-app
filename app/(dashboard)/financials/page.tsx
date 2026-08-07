@@ -2,8 +2,9 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { Banknote, AlertCircle, Clock, CheckCircle2 } from "lucide-react";
+import { Banknote, AlertCircle, Clock, CheckCircle2, Download, FileText } from "lucide-react";
 
 const gatewayLabel: Record<string, string> = {
   GOCARDLESS: "GoCardless",
@@ -88,8 +89,16 @@ export default async function FinancialsPage() {
       </div>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between gap-4">
           <CardTitle>Recent transactions</CardTitle>
+          {transactions.length > 0 && (
+            <Button asChild size="sm" variant="outline">
+              <a href="/api/financials/invoices" download>
+                <Download className="h-3.5 w-3.5" />
+                Download all (PDF)
+              </a>
+            </Button>
+          )}
         </CardHeader>
         <CardContent className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -107,7 +116,21 @@ export default async function FinancialsPage() {
             <tbody>
               {transactions.map((t) => (
                 <tr key={t.id} className="border-b border-border/60">
-                  <td className="py-2.5 pr-4 font-medium">{t.invoiceNumber ?? "—"}</td>
+                  <td className="py-2.5 pr-4 font-medium">
+                    {t.invoiceNumber ? (
+                      <a
+                        href={`/api/financials/invoices/${t.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-primary underline-offset-4 hover:underline"
+                      >
+                        <FileText className="h-3.5 w-3.5" />
+                        {t.invoiceNumber}
+                      </a>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
                   <td className="py-2.5 pr-4">
                     {t.customer.firstName} {t.customer.lastName}
                   </td>
