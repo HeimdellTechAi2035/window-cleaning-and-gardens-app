@@ -6,7 +6,7 @@ export default function PrivacyPage() {
   return (
     <>
       <h1 className="text-2xl font-semibold">Privacy Policy</h1>
-      <p className="text-xs text-muted-foreground">Last updated: 5 August 2026</p>
+      <p className="text-xs text-muted-foreground">Last updated: 8 August 2026</p>
 
       <p>
         Heimdell Tech Ai Ltd (company number 16478408, registered office at Croft, Preston,
@@ -203,20 +203,26 @@ export default function PrivacyPage() {
         .
       </p>
 
-      <h2 className="text-lg font-semibold">8. Security</h2>
+      <h2 className="text-lg font-semibold">8. Data Protection Registration</h2>
+      <p>
+        Heimdell Tech AI Ltd is registered with the UK Information Commissioner&apos;s Office (ICO)
+        under registration number ZC079121.
+      </p>
+
+      <h2 className="text-lg font-semibold">9. Security</h2>
       <p>
         We use industry-standard measures including encrypted connections (HTTPS), hashed
         passwords, and access controls scoped per Organisation, so one Account Holder cannot see
         another&apos;s data.
       </p>
 
-      <h2 className="text-lg font-semibold">9. Children</h2>
+      <h2 className="text-lg font-semibold">10. Children</h2>
       <p>The Service is intended for business use and is not directed at children.</p>
 
-      <h2 className="text-lg font-semibold">10. Changes to this policy</h2>
+      <h2 className="text-lg font-semibold">11. Changes to this policy</h2>
       <p>We may update this policy from time to time; material changes will be reflected by the &quot;Last updated&quot; date above.</p>
 
-      <h2 className="text-lg font-semibold">11. Contact</h2>
+      <h2 className="text-lg font-semibold">12. Contact</h2>
       <p>
         Heimdell Tech Ai Ltd, Croft, Preston, PR1 9DJ —{" "}
         <a href="mailto:admin@heimdell-tech-ai.co.uk" className="underline underline-offset-2">
