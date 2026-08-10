@@ -5,12 +5,12 @@ import { MapPin, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { backfillPropertyCoordinatesAction } from "@/app/actions/organization";
 
-export function GeocodeBackfillBanner({ missingCount }: { missingCount: number }) {
+export function GeocodeBackfillBanner({ propertyCount }: { propertyCount: number }) {
   const [isPending, startTransition] = useTransition();
   const [result, setResult] = useState<{ geocoded: number; failed: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  if (missingCount === 0 && !result) return null;
+  if (propertyCount === 0 && !result) return null;
 
   function handleClick() {
     setError(null);
@@ -39,14 +39,15 @@ export function GeocodeBackfillBanner({ missingCount }: { missingCount: number }
           </span>
         ) : (
           <span>
-            {missingCount} customer address{missingCount === 1 ? "" : "es"} not on the map yet.
+            If a pin looks like it&apos;s in the wrong place, re-checking can fix it — including
+            addresses that already have a pin.
           </span>
         )}
       </div>
       {!result && (
         <Button size="sm" variant="outline" onClick={handleClick} disabled={isPending}>
           {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
-          {isPending ? "Placing pins…" : "Add missing pins"}
+          {isPending ? "Re-checking…" : "Re-check addresses"}
         </Button>
       )}
     </div>

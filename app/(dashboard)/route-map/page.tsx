@@ -15,11 +15,8 @@ export default async function RouteMapPage({
   const date = dateParam ? new Date(dateParam) : new Date();
   const showAllCustomers = view === "all";
 
-  const missingCoordinatesCount = await prisma.property.count({
-    where: {
-      customer: { organizationId: session!.user.organizationId },
-      OR: [{ latitude: null }, { longitude: null }],
-    },
+  const propertyCount = await prisma.property.count({
+    where: { customer: { organizationId: session!.user.organizationId } },
   });
 
   const tabs = (
@@ -70,7 +67,7 @@ export default async function RouteMapPage({
       <div className="flex flex-col gap-4">
         {tabs}
         <p className="text-sm text-muted-foreground">{stops.length} customers with geocoded addresses</p>
-        <GeocodeBackfillBanner missingCount={missingCoordinatesCount} />
+        <GeocodeBackfillBanner propertyCount={propertyCount} />
         <RouteMap date={startOfDay(date).toISOString()} stops={stops} showRoute={false} />
       </div>
     );
@@ -104,7 +101,7 @@ export default async function RouteMapPage({
         {formatDate(date, { weekday: "long", day: "2-digit", month: "long" })} · {stops.length} stops
         with geocoded addresses
       </p>
-      <GeocodeBackfillBanner missingCount={missingCoordinatesCount} />
+      <GeocodeBackfillBanner propertyCount={propertyCount} />
       <RouteMap date={startOfDay(date).toISOString()} stops={stops} />
     </div>
   );

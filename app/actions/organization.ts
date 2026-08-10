@@ -54,10 +54,13 @@ export async function updateIntegrationSettingsAction(formData: FormData) {
 export async function backfillPropertyCoordinatesAction(): Promise<{ geocoded: number; failed: number }> {
   const session = await requireAdminSession();
 
+  // Deliberately re-checks every property, not just ones with no coordinates
+  // at all — a property can already have coordinates that are simply wrong
+  // (e.g. a past geocoding bug placed it in the wrong town/region entirely),
+  // which "only fill in the blanks" would silently skip forever.
   const properties = await prisma.property.findMany({
     where: {
       customer: { organizationId: session.user.organizationId },
-      OR: [{ latitude: null }, { longitude: null }],
     },
     select: { id: true, addressLine1: true, city: true, postcode: true },
   });
