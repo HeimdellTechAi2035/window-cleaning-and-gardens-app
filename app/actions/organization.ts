@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { geocodeAddress } from "@/lib/route-optimizer";
+import { bulkPostcodesIoLookup } from "@/lib/route-optimizer";
 
 async function requireAdminSession() {
   const session = await auth();
@@ -51,45 +51,64 @@ export async function updateIntegrationSettingsAction(formData: FormData) {
   revalidatePath("/settings");
 }
 
-export async function backfillPropertyCoordinatesAction(): Promise<{ geocoded: number; failed: number }> {
+export async function backfillPropertyCoordinatesAction(): Promise<{
+  geocoded: number;
+  failed: number;
+  skippedLocked: number;
+}> {
   const session = await requireAdminSession();
 
-  // Deliberately re-checks every property, not just ones with no coordinates
-  // at all — a property can already have coordinates that are simply wrong
-  // (e.g. a past geocoding bug placed it in the wrong town/region entirely),
-  // which "only fill in the blanks" would silently skip forever.
-  const properties = await prisma.property.findMany({
-    where: {
-      customer: { organizationId: session.user.organizationId },
-    },
-    select: { id: true, addressLine1: true, city: true, postcode: true },
-  });
+  // Re-checks every property, not just ones with no coordinates at all — a
+  // property can already have coordinates that are simply wrong (e.g. a
+  // past geocoding bug placed it in the wrong town/region entirely), which
+  // "only fill in the blanks" would silently skip forever. The one
+  // exception is a property whose pin was manually corrected and locked
+  // (see updatePropertyPinAction) — that's never touched again here.
+  const [properties, skippedLocked] = await Promise.all([
+    prisma.property.findMany({
+      where: {
+        customer: { organizationId: session.user.organizationId },
+        coordinatesLocked: false,
+      },
+      select: { id: true, postcode: true },
+    }),
+    prisma.property.count({
+      where: {
+        customer: { organizationId: session.user.organizationId },
+        coordinatesLocked: true,
+      },
+    }),
+  ]);
+
+  // Deliberately uses the fast bulk postcode lookup here, not the slower
+  // per-property Nominatim street-level search: a naive one-request-per-
+  // property loop (even with no delay) risks exceeding a serverless
+  // function's execution time limit once an organisation has more than a
+  // handful of properties — this previously caused the whole action to
+  // silently time out partway through for larger customer bases. This
+  // trades pinpoint street-level accuracy for postcode-district accuracy
+  // (always correctly in the right area) and a bulk operation that
+  // actually completes. Editing and re-saving one address individually, or
+  // manually dragging its pin, still gets full street-level precision.
+  const coordsByPostcode = await bulkPostcodesIoLookup(properties.map((p) => p.postcode));
 
   let geocoded = 0;
   let failed = 0;
 
-  for (const property of properties) {
-    try {
-      const coords = await geocodeAddress({
-        addressLine1: property.addressLine1,
-        city: property.city,
-        postcode: property.postcode,
-      });
+  await Promise.all(
+    properties.map(async (property) => {
+      const coords = coordsByPostcode.get(property.postcode);
       if (coords) {
         await prisma.property.update({ where: { id: property.id }, data: coords });
         geocoded++;
       } else {
         failed++;
       }
-    } catch {
-      failed++;
-    }
-    // Nominatim's usage policy asks for at most ~1 request/second.
-    await new Promise((resolve) => setTimeout(resolve, 1100));
-  }
+    })
+  );
 
   revalidatePath("/route-map");
-  return { geocoded, failed };
+  return { geocoded, failed, skippedLocked };
 }
 
 export async function inviteTeamMemberAction(formData: FormData) {

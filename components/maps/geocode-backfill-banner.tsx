@@ -7,7 +7,7 @@ import { backfillPropertyCoordinatesAction } from "@/app/actions/organization";
 
 export function GeocodeBackfillBanner({ propertyCount }: { propertyCount: number }) {
   const [isPending, startTransition] = useTransition();
-  const [result, setResult] = useState<{ geocoded: number; failed: number } | null>(null);
+  const [result, setResult] = useState<{ geocoded: number; failed: number; skippedLocked: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   if (propertyCount === 0 && !result) return null;
@@ -36,6 +36,9 @@ export function GeocodeBackfillBanner({ propertyCount }: { propertyCount: number
             {result.failed > 0
               ? `, ${result.failed} address${result.failed === 1 ? "" : "es"} couldn't be found — check they're spelled correctly.`
               : "."}
+            {result.skippedLocked > 0
+              ? ` ${result.skippedLocked} manually-placed pin${result.skippedLocked === 1 ? "" : "s"} left as you set them.`
+              : ""}
           </span>
         ) : (
           <span>

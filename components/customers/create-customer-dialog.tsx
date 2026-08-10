@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
-import { cn, areaRoundKey } from "@/lib/utils";
+import { cn, areaRoundKey, normalizeUkPostcode } from "@/lib/utils";
 import { servicePresets as serviceOptions } from "@/lib/service-presets";
 import { createCustomerAction } from "@/app/actions/customers";
 
@@ -30,6 +30,7 @@ export function CreateCustomerDialog() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [city, setCity] = useState("");
+  const [postcode, setPostcode] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<(typeof paymentMethods)[number]["value"]>("CASH");
   const [enabledServices, setEnabledServices] = useState<Record<string, boolean>>({});
   const [servicePrices, setServicePrices] = useState<Record<string, string>>(
@@ -61,6 +62,7 @@ export function CreateCustomerDialog() {
       formRef.current?.reset();
       setEnabledServices({});
       setCity("");
+      setPostcode("");
       setConflictFormData(null);
       router.push(`/customers/${result.customerId}`);
     });
@@ -148,9 +150,23 @@ export function CreateCustomerDialog() {
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="postcode">Postcode</Label>
-              <Input id="postcode" name="postcode" required />
+              <Input
+                id="postcode"
+                name="postcode"
+                required
+                placeholder="PR1 1AA"
+                pattern="[A-Za-z]{1,2}[0-9][A-Za-z0-9]?\s?[0-9][A-Za-z]{2}"
+                title="Enter the full postcode, e.g. PR1 1AA — not just PR1"
+                value={postcode}
+                onChange={(e) => setPostcode(e.target.value.toUpperCase())}
+              />
             </div>
           </div>
+          <p className="-mt-2 text-xs text-muted-foreground">
+            {postcode.trim() && !normalizeUkPostcode(postcode)
+              ? "Enter the full postcode (not just the first part) for an accurate map pin."
+              : "The full postcode gets you the most accurate map pin."}
+          </p>
           {city.trim() && (
             <p className="-mt-2 text-xs text-muted-foreground">
               Will be auto-added to the &quot;{areaRoundKey(city)}&quot; round, alongside

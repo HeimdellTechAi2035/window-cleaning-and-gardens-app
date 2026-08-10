@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
+import { cn, normalizeUkPostcode } from "@/lib/utils";
 import { updateCustomerAction } from "@/app/actions/customers";
 import type { PaymentMethod } from "@prisma/client";
 
@@ -47,6 +47,7 @@ export function EditCustomerDialog({ customer }: { customer: EditCustomerData })
   );
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [postcode, setPostcode] = useState(customer.property?.postcode ?? "");
 
   // onSubmit + preventDefault instead of <form action={fn}> — React resets
   // every uncontrolled field the instant a form action is invoked whether
@@ -127,11 +128,20 @@ export function EditCustomerDialog({ customer }: { customer: EditCustomerData })
                   <Input
                     id="edit-postcode"
                     name="postcode"
-                    defaultValue={customer.property.postcode}
                     required
+                    placeholder="PR1 1AA"
+                    pattern="[A-Za-z]{1,2}[0-9][A-Za-z0-9]?\s?[0-9][A-Za-z]{2}"
+                    title="Enter the full postcode, e.g. PR1 1AA — not just PR1"
+                    value={postcode}
+                    onChange={(e) => setPostcode(e.target.value.toUpperCase())}
                   />
                 </div>
               </div>
+              <p className="-mt-2 text-xs text-muted-foreground">
+                {postcode.trim() && !normalizeUkPostcode(postcode)
+                  ? "Enter the full postcode (not just the first part) for an accurate map pin."
+                  : "The full postcode gets you the most accurate map pin."}
+              </p>
             </>
           )}
 

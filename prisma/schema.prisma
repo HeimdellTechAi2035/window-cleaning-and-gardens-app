@@ -311,6 +311,11 @@ model Property {
   postcode     String
   latitude     Float?
   longitude    Float?
+  // Set once a user manually drags this property's pin to the correct spot
+  // and saves it — from then on, no automatic geocoding (address edits, the
+  // bulk "Re-check addresses" action) ever overwrites latitude/longitude
+  // again, even if the address text is later changed.
+  coordinatesLocked Boolean @default(false)
 
   accessNotes String?          @db.Text
   hazards     PropertyHazard[]

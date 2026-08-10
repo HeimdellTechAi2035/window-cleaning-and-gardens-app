@@ -112,6 +112,27 @@ export function areaRoundKey(cityRaw: string): string {
   return normalizeAreaName(town);
 }
 
+// Matches the standard UK postcode format (outward code + inward code),
+// e.g. "PR1 1AA", "M1 1AE", "SW1A 1AA" — deliberately requires the full
+// postcode, not just the outward code (e.g. "PR1" alone), since the
+// outward code on its own only geocodes to the centroid of an entire
+// postal district (up to a few square miles), while a full postcode
+// resolves to a small handful of houses.
+const UK_POSTCODE_REGEX = /^([A-Z]{1,2}\d[A-Z\d]?)(\d[A-Z]{2})$/;
+
+/**
+ * Normalizes free-typed input (any casing, with or without a space, e.g.
+ * "pr11aa") to Royal Mail's standard "OUTWARD INWARD" display format
+ * ("PR1 1AA"). Returns null if it isn't a validly-formatted UK postcode at
+ * all — including a partial one like "PR1" with no inward code.
+ */
+export function normalizeUkPostcode(input: string): string | null {
+  const compact = input.trim().toUpperCase().replace(/\s+/g, "");
+  const match = compact.match(UK_POSTCODE_REGEX);
+  if (!match) return null;
+  return `${match[1]} ${match[2]}`;
+}
+
 const ROUND_COLOR_PALETTE = ["#6366f1", "#0ea5e9", "#22c55e", "#f59e0b", "#ec4899", "#8b5cf6"];
 
 /** Deterministic color per area name, so the same area always gets the same round color. */

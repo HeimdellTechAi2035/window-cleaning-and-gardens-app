@@ -54,6 +54,7 @@ export default async function RouteMapPage({
 
     const stops = properties.map((property) => ({
       id: property.id,
+      propertyId: property.id,
       latitude: property.latitude as number,
       longitude: property.longitude as number,
       sequenceOrder: null,
@@ -61,6 +62,7 @@ export default async function RouteMapPage({
       address: `${property.addressLine1}, ${property.city}`,
       serviceTitle: null,
       customerName: `${property.customer.firstName} ${property.customer.lastName}`,
+      coordinatesLocked: property.coordinatesLocked,
     }));
 
     return (
@@ -85,6 +87,7 @@ export default async function RouteMapPage({
 
   const stops = jobs.map((job) => ({
     id: job.id,
+    propertyId: job.property.id,
     latitude: job.property.latitude as number,
     longitude: job.property.longitude as number,
     sequenceOrder: job.sequenceOrder,
@@ -92,6 +95,7 @@ export default async function RouteMapPage({
     address: `${job.property.addressLine1}, ${job.property.city}`,
     serviceTitle: job.service.title,
     customerName: `${job.property.customer.firstName} ${job.property.customer.lastName}`,
+    coordinatesLocked: job.property.coordinatesLocked,
   }));
 
   return (
