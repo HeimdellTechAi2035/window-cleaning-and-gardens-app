@@ -103,7 +103,7 @@ export default async function DashboardPage() {
       </div>
 
       <Card>
-        <CardHeader className="flex-row items-center justify-between">
+        <CardHeader className="flex-row flex-wrap items-center justify-between gap-2">
           <CardTitle>Today&apos;s round</CardTitle>
           <Link href="/planner">
             <Button variant="ghost" size="sm">

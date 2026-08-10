@@ -89,7 +89,7 @@ export default async function FinancialsPage() {
       </div>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-4">
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-4">
           <CardTitle>Recent transactions</CardTitle>
           {transactions.length > 0 && (
             <Button asChild size="sm" variant="outline">

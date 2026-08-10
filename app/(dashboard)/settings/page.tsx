@@ -230,7 +230,7 @@ export default async function SettingsPage() {
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             {users.map((user) => (
-              <div key={user.id} className="flex items-center justify-between rounded-lg border border-border px-4 py-2.5">
+              <div key={user.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-4 py-2.5">
                 <div className="flex items-center gap-3">
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
                     {initials(user.name?.split(" ")[0] ?? "?", user.name?.split(" ")[1] ?? "")}

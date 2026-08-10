@@ -24,7 +24,7 @@ export default async function RoundsPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
           Manage recurring interval-based rounds — 4/8/12-weekly cycles per property.
         </p>
