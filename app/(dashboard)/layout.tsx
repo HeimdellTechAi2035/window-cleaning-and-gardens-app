@@ -35,7 +35,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           userName={session.user.name ?? session.user.email ?? "User"}
           userInitials={initials(firstName, lastName)}
         />
-        <main className="flex-1 px-4 pt-4 md:px-6 lg:px-8">{children}</main>
+        <main className="flex-1 px-4 pt-4 pb-24 md:px-6 md:pb-4 lg:px-8">{children}</main>
         <LegalFooter className="pb-24 md:pb-6" />
       </div>
       <BottomNav />
