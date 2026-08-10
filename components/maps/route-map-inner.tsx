@@ -7,6 +7,7 @@ import { RefreshCw, Loader2 } from "lucide-react";
 import { MapMarker } from "./map-marker";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/components/theme-provider";
+import { spreadOverlappingPoints } from "@/lib/map-marker-layout";
 import type { JobStatus } from "@prisma/client";
 
 export interface RouteStopData {
@@ -75,6 +76,13 @@ export default function RouteMap({
     [stops]
   );
 
+  // Visual-only: several stops can legitimately share the same coordinates
+  // (e.g. a street OpenStreetMap doesn't have falls back to its postcode
+  // district's centroid) — spread just the on-screen pins apart so each one
+  // stays visible and clickable. The route line/centering/fit-bounds above
+  // still use the true, unmodified coordinates.
+  const markerPositions = useMemo(() => spreadOverlappingPoints(stops), [stops]);
+
   async function handleOptimize() {
     setIsOptimizing(true);
     try {
@@ -98,7 +106,7 @@ export default function RouteMap({
         {showRoute && stops.length > 1 && (
           <Polyline positions={linePositions} pathOptions={{ color: "#6366f1", weight: 3, dashArray: "1 6" }} />
         )}
-        {stops.map((stop) => (
+        {markerPositions.map((stop) => (
           <MapMarker
             key={stop.id}
             latitude={stop.latitude}
