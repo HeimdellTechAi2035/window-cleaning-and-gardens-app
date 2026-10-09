@@ -139,10 +139,11 @@ model Organization {
   isReviewerOrganisation  Boolean   @default(false)
   reviewerDemoDataResetAt DateTime?
 
-  users     User[]
-  customers Customer[]
-  rounds    Round[]
-  jobs      Job[]
+  users                User[]
+  customers            Customer[]
+  rounds               Round[]
+  jobs                 Job[]
+  gardenSubscriptions  GardenSubscription[]
 
   // Nullable / SET NULL deliberately — a deletion request must survive the
   // organization it refers to being deleted (that's the whole point of the
@@ -292,9 +293,10 @@ model Customer {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  properties    Property[]
-  transactions  Transaction[]
-  notifications Notification[]
+  properties          Property[]
+  transactions        Transaction[]
+  notifications       Notification[]
+  gardenSubscriptions GardenSubscription[]
 
   @@index([organizationId])
   @@map("customers")
@@ -619,4 +621,67 @@ model RateLimitBucket {
   @@unique([scope, key])
   @@index([expiresAt])
   @@map("rate_limit_buckets")
+}
+
+// ------------------------------------------------------------------
+// Garden Maintenance Subscriptions (Greenfix consumer product)
+// ------------------------------------------------------------------
+
+enum GardenSubscriptionPlan {
+  LAWN      // £29/month — lawn mowing only
+  SILVER    // £49/month — lawn + hedges
+  GOLD      // £79/month — lawn + hedges + weeding
+}
+
+enum GardenSubscriptionStatus {
+  PENDING_MANDATE      // customer signed up, awaiting DD mandate completion
+  PENDING_TPV          // mandate active, awaiting TPV call confirmation
+  ACTIVE               // TPV confirmed, subscription live
+  CANCELLED            // customer or admin cancelled
+  MANDATE_FAILED       // GoCardless mandate setup failed
+}
+
+// One subscription per Greenfix garden maintenance customer.
+// Linked to the shared Customer record (which holds the GoCardless IDs).
+model GardenSubscription {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customerId     String
+  customer       Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  plan           GardenSubscriptionPlan
+  status         GardenSubscriptionStatus @default(PENDING_MANDATE)
+
+  // GoCardless redirect flow session — needed to complete the mandate
+  gcRedirectFlowId   String?
+  gcSessionToken     String?
+
+  // Price in pence at the time of signup (for audit trail)
+  priceMonthlyPence  Int
+
+  // TPV (Third Party Verification) — Heimdell Verified Consent API
+  tpvSaleId              String?
+  tpvVerificationSessionId String?
+  tpvVerificationUrl     String?
+  tpvVerifiedAt          DateTime?
+
+  // Service address (may differ from billing address)
+  serviceAddressLine1 String
+  serviceAddressLine2 String?
+  serviceCity         String
+  servicePostcode     String
+
+  // Optional notes from signup form
+  accessNotes  String? @db.Text
+
+  // Preferred service day (e.g. "Monday", "Any")
+  preferredDay String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([customerId])
+  @@map("garden_subscriptions")
 }

@@ -7,27 +7,33 @@ import { StripePaymentButton } from "@/components/payments/stripe-payment-button
 import { PortalAccessForm } from "@/components/payments/portal-access-form";
 import { LegalFooter } from "@/components/layout/legal-footer";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { Droplets, MapPin, CalendarCheck } from "lucide-react";
+import { Droplets, MapPin, CalendarCheck, Leaf, CheckCircle, Clock } from "lucide-react";
 
 export default async function ClientPortalPage({
   params,
   searchParams,
 }: {
   params: Promise<{ token: string }>;
-  searchParams: Promise<{ paid?: string }>;
+  searchParams: Promise<{ paid?: string; subscribed?: string }>;
 }) {
   const { token } = await params;
-  const { paid } = await searchParams;
+  const { paid, subscribed } = await searchParams;
 
   const customer = await prisma.customer.findUnique({
     where: { portalToken: token },
     include: {
       properties: true,
       organization: { select: { name: true } },
+      gardenSubscriptions: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+      },
     },
   });
 
   if (!customer) notFound();
+
+  const gardenSub = customer.gardenSubscriptions[0] ?? null;
 
   const [upcomingJobs, historyJobs, transactions] = await Promise.all([
     prisma.job.findMany({
@@ -74,10 +80,101 @@ export default async function ClientPortalPage({
           </div>
         )}
 
+        {subscribed === "1" && (
+          <div className="rounded-lg border border-success/30 bg-success/10 px-4 py-3 text-sm text-success flex items-start gap-2">
+            <CheckCircle className="h-4 w-4 mt-0.5 shrink-0" />
+            <span>
+              <strong>You&apos;re signed up!</strong> Your Direct Debit mandate is being set up. We&apos;ll call you shortly to confirm your subscription — please keep an eye out for a call from us.
+            </span>
+          </div>
+        )}
+
         <div>
           <h1 className="text-xl font-semibold">Hi {customer.firstName},</h1>
           <p className="text-sm text-muted-foreground">Here&apos;s everything about your service.</p>
         </div>
+
+        {/* Garden subscription card */}
+        {gardenSub && (
+          <Card className={gardenSub.status === "ACTIVE" ? "border-success/40" : "border-primary/30"}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Leaf className="h-4 w-4 text-primary" />
+                Garden Maintenance Subscription
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium">
+                    {gardenSub.plan === "LAWN" && "Lawn Package"}
+                    {gardenSub.plan === "SILVER" && "Silver Package"}
+                    {gardenSub.plan === "GOLD" && "Gold Package"}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    £{(gardenSub.priceMonthlyPence / 100).toFixed(0)}/month · Direct Debit
+                  </p>
+                </div>
+                <Badge
+                  variant={
+                    gardenSub.status === "ACTIVE"
+                      ? "success"
+                      : gardenSub.status === "CANCELLED" || gardenSub.status === "MANDATE_FAILED"
+                      ? "destructive"
+                      : "secondary"
+                  }
+                >
+                  {gardenSub.status === "PENDING_MANDATE" && "Setting up payment"}
+                  {gardenSub.status === "PENDING_TPV" && "Awaiting verification call"}
+                  {gardenSub.status === "ACTIVE" && "Active"}
+                  {gardenSub.status === "CANCELLED" && "Cancelled"}
+                  {gardenSub.status === "MANDATE_FAILED" && "Payment setup failed"}
+                </Badge>
+              </div>
+
+              {gardenSub.status === "PENDING_TPV" && (
+                <div className="flex items-start gap-2 rounded-lg bg-muted/60 px-3 py-2.5 text-sm text-muted-foreground">
+                  <Clock className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
+                  <span>
+                    We&apos;ll phone you on <strong>{customer.phone}</strong> to confirm your subscription — this is a legal requirement for Direct Debit agreements (DMCC). The call takes around 2 minutes.
+                  </span>
+                </div>
+              )}
+
+              <div className="text-sm text-muted-foreground">
+                <span className="font-medium">Service address: </span>
+                {[gardenSub.serviceAddressLine1, gardenSub.serviceAddressLine2, gardenSub.serviceCity, gardenSub.servicePostcode].filter(Boolean).join(", ")}
+              </div>
+
+              {gardenSub.plan === "LAWN" && (
+                <ul className="text-sm text-muted-foreground list-disc pl-4 space-y-0.5">
+                  <li>Monthly lawn mowing &amp; edging</li>
+                  <li>Grass cuttings cleared</li>
+                </ul>
+              )}
+              {gardenSub.plan === "SILVER" && (
+                <ul className="text-sm text-muted-foreground list-disc pl-4 space-y-0.5">
+                  <li>Monthly lawn mowing &amp; edging</li>
+                  <li>Hedge trimming (up to 3 hedges)</li>
+                  <li>Cuttings cleared</li>
+                </ul>
+              )}
+              {gardenSub.plan === "GOLD" && (
+                <ul className="text-sm text-muted-foreground list-disc pl-4 space-y-0.5">
+                  <li>Monthly lawn mowing &amp; edging</li>
+                  <li>Hedge trimming (up to 3 hedges)</li>
+                  <li>Weeding of beds &amp; borders</li>
+                  <li>All cuttings cleared</li>
+                </ul>
+              )}
+
+              <p className="text-xs text-muted-foreground">
+                14-day cooling-off period. Cancel anytime with 30 days notice — call{" "}
+                <a href="tel:07447804597" className="underline">07447 804597</a>.
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
         {outstandingAmount > 0 && (
           <Card className="border-warning/30 bg-warning/5">
