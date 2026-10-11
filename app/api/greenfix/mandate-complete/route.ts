@@ -25,17 +25,17 @@ import {
 
 const TPV_BASE_URL = process.env.TPV_API_URL ?? "https://telecomcompliance.uk";
 const TPV_API_KEY  = process.env.TPV_API_KEY ?? "";
-const APP_URL      = process.env.NEXT_PUBLIC_APP_URL ?? "https://roundflow.greenfixexterior-care.co.uk";
+const APP_URL      = (process.env.NEXT_PUBLIC_APP_URL || "https://roundflow.greenfixexterior-care.co.uk").replace(/\/$/, "");
 
 const PLAN_DESCRIPTIONS: Record<string, { name: string; price: string; terms: string }> = {
   LAWN: {
     name:  "Greenfix Lawn Package",
-    price: "29.00",
-    terms: "Monthly lawn mowing service. 14-day cooling-off period from signup date. Cancel anytime with 30 days notice.",
+    price: "39.00",
+    terms: "Fortnightly lawn mowing service. 14-day cooling-off period from signup date. Cancel anytime with 30 days notice.",
   },
   SILVER: {
     name:  "Greenfix Silver Package",
-    price: "49.00",
+    price: "59.00",
     terms: "Monthly lawn mowing and hedge trimming service. 14-day cooling-off period from signup date. Cancel anytime with 30 days notice.",
   },
   GOLD: {
@@ -106,7 +106,7 @@ export async function GET(req: NextRequest) {
     });
 
     // 4. Trigger TPV via Heimdell Verified Consent API
-    const planDesc = PLAN_DESCRIPTIONS[plan] ?? PLAN_DESCRIPTIONS.LAWN;
+    const planDesc = PLAN_DESCRIPTIONS[subscription.plan];
     let tpvSaleId: string | null = null;
     let tpvVerificationSessionId: string | null = null;
     let tpvVerificationUrl: string | null = null;
@@ -136,7 +136,7 @@ export async function GET(req: NextRequest) {
             },
             product: {
               name:                        planDesc.name,
-              subscription_price:          planDesc.price,
+              subscription_price:          (subscription.priceMonthlyPence / 100).toFixed(2),
               subscription_frequency:      "monthly",
               subscription_terms_summary:  planDesc.terms,
               policies_summary:

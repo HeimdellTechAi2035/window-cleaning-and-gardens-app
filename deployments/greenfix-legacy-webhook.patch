@@ -1,0 +1,14 @@
+--- a/app/api/webhooks/gocardless/[organizationId]/route.ts
++++ b/app/api/webhooks/gocardless/[organizationId]/route.ts
+@@ -8,6 +8,12 @@
+   mandateId: string
+ ) {
++  // Garden subscriptions request verification in the mandate-complete callback.
++  // Keep the legacy billing-request hook from requesting a second phone call.
++  const gardenSubscription = await prisma.gardenSubscription.findFirst({
++    where: { customerId: customer.id }, select: { id: true },
++  });
++  if (gardenSubscription) return;
+   const apiKey = process.env.TPV_API_KEY;
+   if (!apiKey) { console.warn("[TPV] No TPV_API_KEY set"); return; }
+   const packageMatch = customer.notes?.match(/Package: ([^\u2014]+)/);
