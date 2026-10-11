@@ -6,7 +6,6 @@ import "leaflet/dist/leaflet.css";
 import { RefreshCw, Loader2, X, MapPin } from "lucide-react";
 import { MapMarker } from "./map-marker";
 import { Button } from "@/components/ui/button";
-import { useTheme } from "@/components/theme-provider";
 import { spreadOverlappingPoints } from "@/lib/map-marker-layout";
 import { updatePropertyPinAction, resetPropertyPinToAutomaticAction } from "@/app/actions/customers";
 import type { JobStatus } from "@prisma/client";
@@ -27,12 +26,11 @@ export interface RouteStopData {
   coordinatesLocked: boolean;
 }
 
-const TILE_URL = {
-  light: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-  dark: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-};
+// Standard OSM tiles need no provider API key. Keep browser caching and
+// referrer headers intact and request only tiles visible in the map.
+const TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 const TILE_ATTRIBUTION =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
 function FitBounds({ stops }: { stops: RouteStopData[] }) {
   const map = useMap();
@@ -60,7 +58,6 @@ export default function RouteMap({
   /** Whether this is a day's ordered route (shows the route line + Optimize button) or a plain list of pins. */
   showRoute?: boolean;
 }) {
-  const { theme } = useTheme();
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [isSaving, startSaving] = useTransition();
   const [selected, setSelected] = useState<RouteStopData | null>(null);
@@ -160,7 +157,7 @@ export default function RouteMap({
   return (
     <div className="relative h-[400px] sm:h-[480px] lg:h-[560px] overflow-hidden rounded-xl border border-border">
       <MapContainer center={center} zoom={11} zoomControl={false} style={{ width: "100%", height: "100%" }}>
-        <TileLayer url={theme === "dark" ? TILE_URL.dark : TILE_URL.light} attribution={TILE_ATTRIBUTION} />
+        <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} maxZoom={19} />
         <ZoomControl position="topright" />
         <FitBounds stops={stops} />
         {showRoute && stops.length > 1 && (
