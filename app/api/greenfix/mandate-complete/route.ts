@@ -88,13 +88,15 @@ export async function GET(req: NextRequest) {
     });
 
     const mandateId = completedFlow.links?.mandate;
-    if (!mandateId) throw new Error("No mandate ID in completed flow");
+    const gcCustomerId = completedFlow.links?.customer;
+    if (!mandateId || !gcCustomerId) throw new Error("Incomplete mandate/customer links in completed flow");
 
     // 2. Update Customer with GoCardless mandate
     await prisma.customer.update({
       where: { id: customer.id },
       data: {
         gocardlessMandateId: mandateId,
+        gocardlessCustomerId: gcCustomerId,
         mandateStatus: "pending_submission",
       },
     });

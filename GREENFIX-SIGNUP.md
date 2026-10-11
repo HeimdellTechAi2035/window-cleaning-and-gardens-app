@@ -4,7 +4,14 @@ The website sends POST requests to `/api/greenfix/subscribe` on Roundflow.
 Plans are Lawn £39, Silver £59 and Gold £79 per month. Both uppercase and
 lowercase plan keys are accepted. GoCardless returns customers to
 `/api/greenfix/mandate-complete`, which requests phone verification and
-redirects to the customer's portal.
+redirects to the customer's portal. The signup handler creates only the Roundflow
+customer before checkout. It prefills the hosted GoCardless page, which creates
+the GoCardless customer during mandate setup. The completion callback stores the
+customer and mandate IDs returned by that flow.
+
+Direct GoCardless customer creation can require approval for custom payment
+pages, even with a valid Read-write token. It is unnecessary for this hosted flow
+and was removed after the live account returned 403 at that step.
 
 Deploy the Roundflow change before the Greenfix website change. The compatibility
 endpoint `/api/public/signup` accepts both the earlier `package`/`address` fields
