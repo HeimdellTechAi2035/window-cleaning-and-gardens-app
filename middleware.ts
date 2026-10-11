@@ -11,6 +11,8 @@ const PUBLIC_PATHS = [
   "/api/auth",
   "/api/webhooks",
   "/api/greenfix/subscribe",
+  "/api/public/signup",
+  "/signup/success",
   "/api/greenfix/mandate-complete",
   "/greenfix/signup-error",
   "/portal",

@@ -25,7 +25,7 @@ import {
 
 const TPV_BASE_URL = process.env.TPV_API_URL ?? "https://telecomcompliance.uk";
 const TPV_API_KEY  = process.env.TPV_API_KEY ?? "";
-const APP_URL      = (process.env.NEXT_PUBLIC_APP_URL || "https://roundflow.uk").replace(/\/$/, "");
+const APP_URL      = (process.env.NEXT_PUBLIC_APP_URL || "https://roundflow.greenfixexterior-care.co.uk").replace(/\/$/, "");
 
 const PLAN_DESCRIPTIONS: Record<string, { name: string; price: string; terms: string }> = {
   LAWN: {

@@ -6,14 +6,22 @@ lowercase plan keys are accepted. GoCardless returns customers to
 `/api/greenfix/mandate-complete`, which requests phone verification and
 redirects to the customer's portal.
 
-Deploy the Roundflow change before the Greenfix website change. The VPS-only
-`/api/public/signup` route described in the previous troubleshooting session
-is absent from GitHub main; preserve a backup of any uncommitted server changes
-before updating the checkout.
+Deploy the Roundflow change before the Greenfix website change. The compatibility
+endpoint `/api/public/signup` accepts both the earlier `package`/`address` fields
+and the website's `plan`/`addressLine1` fields, and returns both `ok` and `success`.
+Preserve a backup of any uncommitted server changes before updating the checkout.
+
+The October 11 VPS had a customized GoCardless webhook and `/signup/success`
+page that were absent from GitHub main. The release preserves those files.
+`deployments/greenfix-legacy-webhook.patch` records the guard applied to that
+custom webhook so the new garden subscription callback and legacy hook cannot
+both request verification. This patch targets the VPS's customized webhook,
+not the unmodified GitHub webhook. The original server source and process
+configuration are backed up in `/var/backups/roundflow/pre-codex-20261011.tar.gz`.
 
 Check the VPS environment:
 
-- `NEXT_PUBLIC_APP_URL=https://roundflow.uk`
+- `NEXT_PUBLIC_APP_URL=https://roundflow.greenfixexterior-care.co.uk`
 - `GREENFIX_ORG_ID` identifies the actual Greenfix organization.
 - That organization's GoCardless access token and environment are configured.
 - `TPV_API_URL` points to the verification service and `TPV_API_KEY` is set.
@@ -27,7 +35,7 @@ Check OPTIONS responses from both website origins. Each should return 204
 and `Access-Control-Allow-Origin` matching the requested origin:
 
 ```bash
-curl --max-time 20 -i -X OPTIONS https://roundflow.uk/api/greenfix/subscribe \
+curl --max-time 20 -i -X OPTIONS https://roundflow.greenfixexterior-care.co.uk/api/greenfix/subscribe \
   -H 'Origin: https://greenfixexterior-care.co.uk' \
   -H 'Access-Control-Request-Method: POST' \
   -H 'Access-Control-Request-Headers: Content-Type'

@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
     if (!gcCustomer.id) throw new Error("GoCardless returned no customer ID");
 
     // 2. Create / upsert Roundflow Customer record
-    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://roundflow.uk").replace(/\/$/, "");
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://roundflow.greenfixexterior-care.co.uk").replace(/\/$/, "");
     const sessionToken = crypto.randomBytes(20).toString("hex");
 
     const customer = await prisma.customer.create({
