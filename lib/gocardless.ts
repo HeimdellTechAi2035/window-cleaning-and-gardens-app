@@ -49,12 +49,22 @@ export async function createMandateRedirectFlow(
     sessionToken: string;
     successRedirectUrl: string;
     description: string;
+    prefilledCustomer?: CreateCustomerInput;
   }
 ) {
   const flow = await gc.redirectFlows.create({
     description: params.description,
     session_token: params.sessionToken,
     success_redirect_url: params.successRedirectUrl,
+    prefilled_customer: params.prefilledCustomer ? {
+      email: params.prefilledCustomer.email,
+      given_name: params.prefilledCustomer.givenName,
+      family_name: params.prefilledCustomer.familyName,
+      address_line1: params.prefilledCustomer.addressLine1,
+      city: params.prefilledCustomer.city,
+      postal_code: params.prefilledCustomer.postalCode,
+      country_code: "GB",
+    } : undefined,
   });
   return flow;
 }

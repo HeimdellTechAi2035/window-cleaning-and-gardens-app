@@ -18,7 +18,6 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import {
   getGoCardlessClient,
-  createGoCardlessCustomer,
   createMandateRedirectFlow,
 } from "@/lib/gocardless";
 import crypto from "crypto";
@@ -95,19 +94,7 @@ export async function POST(req: NextRequest) {
 
     const gc = getGoCardlessClient(org.gocardlessAccessToken, org.gocardlessEnv ?? "live");
 
-    // 1. Create GoCardless customer
-    const gcCustomer = await createGoCardlessCustomer(gc, {
-      email:       data.email,
-      givenName:   data.firstName,
-      familyName:  data.lastName,
-      addressLine1: data.addressLine1,
-      city:         data.city,
-      postalCode:   data.postcode,
-      phone:        data.phone,
-    });
-    if (!gcCustomer.id) throw new Error("GoCardless returned no customer ID");
-
-    // 2. Create / upsert Roundflow Customer record
+    // Create the Roundflow record; GoCardless creates its customer on the hosted page.
     const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://roundflow.greenfixexterior-care.co.uk").replace(/\/$/, "");
     const sessionToken = crypto.randomBytes(20).toString("hex");
 
@@ -123,7 +110,6 @@ export async function POST(req: NextRequest) {
         billingCity:          data.city,
         billingPostcode:      data.postcode,
         preferredPaymentMethod: "DIRECT_DEBIT",
-        gocardlessCustomerId: gcCustomer.id,
       },
     });
 
@@ -133,10 +119,18 @@ export async function POST(req: NextRequest) {
       `?customerId=${customer.id}&session=${sessionToken}&plan=${data.plan}`;
 
     const flow = await createMandateRedirectFlow(gc, {
-      customerId:         gcCustomer.id,
+      customerId:         customer.id,
       sessionToken,
       successRedirectUrl,
       description:        `${planConfig.label} — Greenfix Exterior Care`,
+      prefilledCustomer: {
+        email: data.email,
+        givenName: data.firstName,
+        familyName: data.lastName,
+        addressLine1: data.addressLine1,
+        city: data.city,
+        postalCode: data.postcode,
+      },
     });
     if (!flow.id || !flow.redirect_url) throw new Error("GoCardless returned an incomplete redirect flow");
 

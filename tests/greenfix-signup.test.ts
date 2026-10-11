@@ -10,7 +10,7 @@ vi.mock("@/lib/gocardless", () => ({
   getGoCardlessClient: vi.fn(() => ({})),
   createGoCardlessCustomer: vi.fn(async () => ({ id: "gc-customer" })),
   createMandateRedirectFlow: vi.fn(async () => ({ id: "flow", redirect_url: "https://payments.example/setup" })),
-  completeMandateRedirectFlow: vi.fn(async () => ({ links: { mandate: "mandate" } })),
+  completeMandateRedirectFlow: vi.fn(async () => ({ links: { mandate: "mandate", customer: "hosted-customer" } })),
 }));
 vi.mock("next-auth", () => ({ default: () => ({ auth: (handler: unknown) => handler }) }));
 
@@ -80,11 +80,13 @@ describe("Greenfix signup", () => {
     expect(response.status).toBe(500);
     expect(response.headers.get("Access-Control-Allow-Origin")).toBe(origin);
   });
-  it("handles a missing GoCardless customer ID without saving a customer", async () => {
-    vi.mocked(createGoCardlessCustomer).mockResolvedValueOnce({} as never);
+  it("uses hosted customer creation instead of the restricted direct API", async () => {
     const response = await POST(request("lawn"));
-    expect(response.status).toBe(500);
-    expect(prisma.customer.create).not.toHaveBeenCalled();
+    expect(response.status).toBe(201);
+    expect(createGoCardlessCustomer).not.toHaveBeenCalled();
+    expect(createMandateRedirectFlow).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      prefilledCustomer: expect.objectContaining({ email: form.email, givenName: form.firstName }),
+    }));
   });
   it("does not save a subscription for an incomplete GoCardless flow", async () => {
     vi.mocked(createMandateRedirectFlow).mockResolvedValueOnce({ id: "flow" } as never);
@@ -129,6 +131,7 @@ describe("mandate callback", () => {
     const intake = JSON.parse((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body as string);
     expect(intake.product.name).toBe("Greenfix Silver Package");
     expect(intake.product.subscription_price).toBe("59.00");
+    expect(prisma.customer.update).toHaveBeenCalledWith({ where: { id: "customer" }, data: expect.objectContaining({ gocardlessCustomerId: "hosted-customer", gocardlessMandateId: "mandate" }) });
     expect(response.headers.get("location")).toBe("https://roundflow.greenfixexterior-care.co.uk/portal/portal-token?subscribed=1");
   });
 });
