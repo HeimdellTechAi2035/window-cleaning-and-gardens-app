@@ -22,13 +22,14 @@ import {
   createMandateRedirectFlow,
 } from "@/lib/gocardless";
 import crypto from "crypto";
+import { greenfixCorsHeaders } from "@/lib/greenfix-cors";
 
 // ---------------------------------------------------------------------------
 // Plan config
 // ---------------------------------------------------------------------------
 const PLAN_PRICES: Record<string, { pence: number; label: string; description: string }> = {
-  LAWN:   { pence: 2900, label: "Lawn Package",   description: "Monthly lawn mowing — £29/month" },
-  SILVER: { pence: 4900, label: "Silver Package", description: "Lawn mowing + hedge trimming — £49/month" },
+  LAWN:   { pence: 3900, label: "Lawn Package",   description: "Fortnightly lawn mowing — £39/month" },
+  SILVER: { pence: 5900, label: "Silver Package", description: "Lawn mowing + hedge trimming — £59/month" },
   GOLD:   { pence: 7900, label: "Gold Package",   description: "Lawn, hedges + weeding — £79/month" },
 };
 
@@ -36,7 +37,7 @@ const PLAN_PRICES: Record<string, { pence: number; label: string; description: s
 // Validation schema
 // ---------------------------------------------------------------------------
 const subscribeSchema = z.object({
-  plan: z.enum(["LAWN", "SILVER", "GOLD"]),
+  plan: z.string().trim().toUpperCase().pipe(z.enum(["LAWN", "SILVER", "GOLD"])),
   firstName:    z.string().min(1),
   lastName:     z.string().min(1),
   email:        z.string().email(),
@@ -54,23 +55,7 @@ const subscribeSchema = z.object({
 // ---------------------------------------------------------------------------
 export async function POST(req: NextRequest) {
   // CORS — allow the Greenfix website to call this
-  const origin = req.headers.get("origin") ?? "";
-  const allowedOrigins = [
-    "https://greenfixexterior-care.co.uk",
-    "https://www.greenfixexterior-care.co.uk",
-  ];
-  const corsOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
-
-  const corsHeaders = {
-    "Access-Control-Allow-Origin": corsOrigin,
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-  };
-
-  // Handle OPTIONS preflight
-  if (req.method === "OPTIONS") {
-    return new NextResponse(null, { status: 204, headers: corsHeaders });
-  }
+  const corsHeaders = greenfixCorsHeaders(req);
 
   let body: unknown;
   try {
@@ -97,17 +82,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Server configuration error" }, { status: 500, headers: corsHeaders });
   }
 
-  const org = await prisma.organization.findUnique({
-    where: { id: GREENFIX_ORG_ID },
-    select: { id: true, gocardlessAccessToken: true, gocardlessEnv: true },
-  });
-
-  if (!org?.gocardlessAccessToken) {
-    console.error("[greenfix/subscribe] No GoCardless token for org", GREENFIX_ORG_ID);
-    return NextResponse.json({ ok: false, error: "Payment system not configured" }, { status: 500, headers: corsHeaders });
-  }
-
   try {
+    const org = await prisma.organization.findUnique({
+      where: { id: GREENFIX_ORG_ID },
+      select: { id: true, gocardlessAccessToken: true, gocardlessEnv: true },
+    });
+
+    if (!org?.gocardlessAccessToken) {
+      console.error("[greenfix/subscribe] No GoCardless token for org", GREENFIX_ORG_ID);
+      return NextResponse.json({ ok: false, error: "Payment system not configured" }, { status: 500, headers: corsHeaders });
+    }
+
     const gc = getGoCardlessClient(org.gocardlessAccessToken, org.gocardlessEnv ?? "live");
 
     // 1. Create GoCardless customer
@@ -122,7 +107,7 @@ export async function POST(req: NextRequest) {
     });
 
     // 2. Create / upsert Roundflow Customer record
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://roundflow.greenfixexterior-care.co.uk";
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://roundflow.uk").replace(/\/$/, "");
     const sessionToken = crypto.randomBytes(20).toString("hex");
 
     const customer = await prisma.customer.create({
@@ -158,7 +143,7 @@ export async function POST(req: NextRequest) {
       data: {
         organizationId:      org.id,
         customerId:          customer.id,
-        plan:                data.plan as any,
+        plan:                data.plan,
         status:              "PENDING_MANDATE",
         priceMonthlyPence:   planConfig.pence,
         gcRedirectFlowId:    flow.id,
@@ -183,13 +168,9 @@ export async function POST(req: NextRequest) {
 }
 
 // OPTIONS preflight
-export async function OPTIONS() {
+export async function OPTIONS(req: NextRequest) {
   return new NextResponse(null, {
     status: 204,
-    headers: {
-      "Access-Control-Allow-Origin": "https://greenfixexterior-care.co.uk",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-    },
+    headers: greenfixCorsHeaders(req),
   });
 }
