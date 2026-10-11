@@ -12,6 +12,8 @@ import { DeleteCustomerButton } from "@/components/customers/delete-customer-but
 import { JobHistoryRow } from "@/components/planner/job-history-row";
 import { initials } from "@/lib/utils";
 import { Mail, Phone } from "lucide-react";
+import { GardenSubscriptionSummaryPanel } from "@/components/customers/garden-subscription-summary";
+import { gardenSubscriptionMatchesProperty } from "@/lib/garden-plans";
 
 export default async function CustomerDetailPage({
   params,
@@ -24,6 +26,7 @@ export default async function CustomerDetailPage({
   const customer = await prisma.customer.findFirst({
     where: { id, organizationId: session!.user.organizationId },
     include: {
+      gardenSubscriptions: { orderBy: { createdAt: "desc" } },
       properties: {
         include: { hazards: true, services: true },
       },
@@ -103,6 +106,15 @@ export default async function CustomerDetailPage({
         </CardContent>
       </Card>
 
+      {customer.gardenSubscriptions.map(subscription => (
+        <GardenSubscriptionSummaryPanel key={subscription.id} subscription={{
+          id: subscription.id, plan: subscription.plan,
+          priceMonthlyPence: subscription.priceMonthlyPence, status: subscription.status,
+          preferredDay: subscription.preferredDay,
+          tpvVerifiedAt: subscription.tpvVerifiedAt?.toISOString() ?? null,
+        }} />
+      ))}
+
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {customer.properties.map((property) => (
           <Card key={property.id}>
@@ -126,6 +138,14 @@ export default async function CustomerDetailPage({
                     price: Number(s.price),
                     defaultIntervalWeeks: s.defaultIntervalWeeks,
                   })),
+                  gardenSubscriptions: customer.gardenSubscriptions
+                    .filter(subscription => gardenSubscriptionMatchesProperty(subscription, property))
+                    .map(subscription => ({
+                      id: subscription.id, plan: subscription.plan,
+                      priceMonthlyPence: subscription.priceMonthlyPence, status: subscription.status,
+                      preferredDay: subscription.preferredDay,
+                      tpvVerifiedAt: subscription.tpvVerifiedAt?.toISOString() ?? null,
+                    })),
                 }}
               />
             </CardContent>

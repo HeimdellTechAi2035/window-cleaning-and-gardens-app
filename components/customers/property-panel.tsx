@@ -15,6 +15,8 @@ import {
 import { formatCurrency, cn } from "@/lib/utils";
 import { servicePresets } from "@/lib/service-presets";
 import type { HazardSeverity } from "@prisma/client";
+import type { GardenSubscriptionSummary } from "@/lib/garden-plans";
+import { GardenSubscriptionSummaryPanel } from "@/components/customers/garden-subscription-summary";
 
 export interface PropertyPanelData {
   id: string;
@@ -24,6 +26,7 @@ export interface PropertyPanelData {
   accessNotes: string | null;
   hazards: { id: string; label: string; severity: HazardSeverity }[];
   services: { id: string; title: string; price: number; defaultIntervalWeeks: number }[];
+  gardenSubscriptions?: GardenSubscriptionSummary[];
 }
 
 export function PropertyPanel({ property }: { property: PropertyPanelData }) {
@@ -201,6 +204,9 @@ export function PropertyPanel({ property }: { property: PropertyPanelData }) {
 
       <div className="flex flex-col gap-2">
         <p className="text-xs font-semibold uppercase text-muted-foreground">Services</p>
+        {property.gardenSubscriptions?.map(subscription => (
+          <GardenSubscriptionSummaryPanel key={subscription.id} subscription={subscription} showIncludedWork />
+        ))}
         <div className="flex flex-col gap-1.5">
           {property.services.map((s) => (
             <div key={s.id} className="flex items-center justify-between rounded-lg border border-border px-3 py-2 text-sm">
