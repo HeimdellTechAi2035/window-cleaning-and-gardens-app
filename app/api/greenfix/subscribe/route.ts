@@ -105,6 +105,7 @@ export async function POST(req: NextRequest) {
       postalCode:   data.postcode,
       phone:        data.phone,
     });
+    if (!gcCustomer.id) throw new Error("GoCardless returned no customer ID");
 
     // 2. Create / upsert Roundflow Customer record
     const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://roundflow.uk").replace(/\/$/, "");
@@ -137,6 +138,7 @@ export async function POST(req: NextRequest) {
       successRedirectUrl,
       description:        `${planConfig.label} — Greenfix Exterior Care`,
     });
+    if (!flow.id || !flow.redirect_url) throw new Error("GoCardless returned an incomplete redirect flow");
 
     // 4. Create GardenSubscription record (PENDING_MANDATE)
     await prisma.gardenSubscription.create({

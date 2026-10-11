@@ -15,7 +15,7 @@ vi.mock("@/lib/gocardless", () => ({
 vi.mock("next-auth", () => ({ default: () => ({ auth: (handler: unknown) => handler }) }));
 
 import { prisma } from "@/lib/prisma";
-import { createMandateRedirectFlow } from "@/lib/gocardless";
+import { createGoCardlessCustomer, createMandateRedirectFlow } from "@/lib/gocardless";
 import { POST, OPTIONS } from "@/app/api/greenfix/subscribe/route";
 import middleware from "@/middleware";
 
@@ -69,6 +69,18 @@ describe("Greenfix signup", () => {
     const response = await POST(request("lawn"));
     expect(response.status).toBe(500);
     expect(response.headers.get("Access-Control-Allow-Origin")).toBe(origin);
+  });
+  it("handles a missing GoCardless customer ID without saving a customer", async () => {
+    vi.mocked(createGoCardlessCustomer).mockResolvedValueOnce({} as never);
+    const response = await POST(request("lawn"));
+    expect(response.status).toBe(500);
+    expect(prisma.customer.create).not.toHaveBeenCalled();
+  });
+  it("does not save a subscription for an incomplete GoCardless flow", async () => {
+    vi.mocked(createMandateRedirectFlow).mockResolvedValueOnce({ id: "flow" } as never);
+    const response = await POST(request("lawn"));
+    expect(response.status).toBe(500);
+    expect(prisma.gardenSubscription.create).not.toHaveBeenCalled();
   });
   it("does not grant CORS access to an unrelated origin", async () => {
     const response = await OPTIONS(new NextRequest("https://roundflow.uk/api/greenfix/subscribe", { headers: { Origin: "https://other.example" } }));
