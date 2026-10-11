@@ -4,7 +4,7 @@ import { NextRequest } from "next/server";
 vi.mock("@/lib/prisma", () => ({ prisma: {
   organization: { findUnique: vi.fn() },
   customer: { create: vi.fn(), update: vi.fn() },
-  gardenSubscription: { create: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
+  gardenSubscription: { create: vi.fn(), findFirst: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
 } }));
 vi.mock("@/lib/gocardless", () => ({
   getGoCardlessClient: vi.fn(() => ({})),
@@ -13,12 +13,14 @@ vi.mock("@/lib/gocardless", () => ({
   completeMandateRedirectFlow: vi.fn(async () => ({ links: { mandate: "mandate", customer: "hosted-customer" } })),
 }));
 vi.mock("next-auth", () => ({ default: () => ({ auth: (handler: unknown) => handler }) }));
+vi.mock("@/lib/garden-enrollment", () => ({ enrollGardenProperty: vi.fn(async () => ({ id: "property" })) }));
 
 import { prisma } from "@/lib/prisma";
-import { createGoCardlessCustomer, createMandateRedirectFlow } from "@/lib/gocardless";
+import { createGoCardlessCustomer, createMandateRedirectFlow, completeMandateRedirectFlow } from "@/lib/gocardless";
 import { POST, OPTIONS } from "@/app/api/greenfix/subscribe/route";
 import { POST as legacySignup } from "@/app/api/public/signup/route";
 import middleware from "@/middleware";
+import { enrollGardenProperty } from "@/lib/garden-enrollment";
 
 const origin = "https://greenfixexterior-care.co.uk";
 const form = {
@@ -113,6 +115,25 @@ describe("unauthenticated signup route access", () => {
 });
 
 describe("mandate callback", () => {
+  it("does not complete the mandate or request another call on a finished callback retry", async () => {
+    vi.stubEnv("TPV_API_KEY", "mock-verification-key");
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://roundflow.greenfixexterior-care.co.uk");
+    vi.resetModules();
+    const { GET } = await import("@/app/api/greenfix/mandate-complete/route");
+    vi.mocked(prisma.gardenSubscription.findFirst).mockResolvedValue({
+      id: "sub", customerId: "customer", organizationId: "greenfix", gcRedirectFlowId: "flow",
+      customer: { id: "customer", gocardlessMandateId: "mandate", portalToken: "portal-token" },
+      organization: { id: "greenfix", gocardlessAccessToken: "mock-token", gocardlessEnv: "sandbox" },
+    } as never);
+    vi.mocked(prisma.gardenSubscription.findUnique).mockResolvedValueOnce({ tpvSaleId: "existing-sale" } as never);
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const response = await GET(new NextRequest("https://roundflow.greenfixexterior-care.co.uk/api/greenfix/mandate-complete?customerId=customer&session=token&plan=LAWN"));
+    expect(completeMandateRedirectFlow).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(prisma.gardenSubscription.update).not.toHaveBeenCalled();
+    expect(response.headers.get("location")).toContain("/portal/portal-token");
+  });
   it("uses the stored plan and signup price for phone verification", async () => {
     // The callback module captures environment at import; load a fresh copy.
     vi.stubEnv("TPV_API_KEY", "mock-verification-key");
@@ -132,6 +153,7 @@ describe("mandate callback", () => {
     expect(intake.product.name).toBe("Greenfix Silver Package");
     expect(intake.product.subscription_price).toBe("59.00");
     expect(prisma.customer.update).toHaveBeenCalledWith({ where: { id: "customer" }, data: expect.objectContaining({ gocardlessCustomerId: "hosted-customer", gocardlessMandateId: "mandate" }) });
+    expect(enrollGardenProperty).toHaveBeenCalledWith(expect.objectContaining({ id: "sub", plan: "SILVER" }));
     expect(response.headers.get("location")).toBe("https://roundflow.greenfixexterior-care.co.uk/portal/portal-token?subscribed=1");
   });
 });

@@ -18,6 +18,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { enrollGardenProperty } from "@/lib/garden-enrollment";
 import {
   getGoCardlessClient,
   completeMandateRedirectFlow,
@@ -82,30 +83,42 @@ export async function GET(req: NextRequest) {
     const gc = getGoCardlessClient(org.gocardlessAccessToken, org.gocardlessEnv ?? "live");
 
     // 1. Complete the redirect flow to get the mandate ID
-    const completedFlow = await completeMandateRedirectFlow(gc, {
-      redirectFlowId: subscription.gcRedirectFlowId,
-      sessionToken,
-    });
+    if (!customer.gocardlessMandateId) {
+      const completedFlow = await completeMandateRedirectFlow(gc, {
+        redirectFlowId: subscription.gcRedirectFlowId,
+        sessionToken,
+      });
 
-    const mandateId = completedFlow.links?.mandate;
-    const gcCustomerId = completedFlow.links?.customer;
-    if (!mandateId || !gcCustomerId) throw new Error("Incomplete mandate/customer links in completed flow");
+      const mandateId = completedFlow.links?.mandate;
+      const gcCustomerId = completedFlow.links?.customer;
+      if (!mandateId || !gcCustomerId) throw new Error("Incomplete mandate/customer links in completed flow");
 
-    // 2. Update Customer with GoCardless mandate
-    await prisma.customer.update({
-      where: { id: customer.id },
-      data: {
-        gocardlessMandateId: mandateId,
-        gocardlessCustomerId: gcCustomerId,
-        mandateStatus: "pending_submission",
-      },
-    });
+      // 2. Update Customer with GoCardless mandate
+      await prisma.customer.update({
+        where: { id: customer.id },
+        data: {
+          gocardlessMandateId: mandateId,
+          gocardlessCustomerId: gcCustomerId,
+          mandateStatus: "pending_submission",
+        },
+      });
 
-    // 3. Update subscription → PENDING_TPV
-    await prisma.gardenSubscription.update({
-      where: { id: subscription.id },
-      data: { status: "PENDING_TPV" },
+      // 3. Update subscription → PENDING_TPV
+      await prisma.gardenSubscription.update({
+        where: { id: subscription.id },
+        data: { status: "PENDING_TPV" },
+      });
+    }
+
+    await enrollGardenProperty(subscription);
+
+    // Refresh after a previous callback attempt: never request another sale/call.
+    const verification = await prisma.gardenSubscription.findUnique({
+      where: { id: subscription.id }, select: { tpvSaleId: true },
     });
+    if (verification?.tpvSaleId) {
+      return NextResponse.redirect(`${APP_URL}/portal/${customer.portalToken}?subscribed=1`);
+    }
 
     // 4. Trigger TPV via Heimdell Verified Consent API
     const planDesc = PLAN_DESCRIPTIONS[subscription.plan];
